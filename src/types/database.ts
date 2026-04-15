@@ -397,10 +397,15 @@ export interface Database {
           code: string
           discount_amount: number
           min_order_amount: number
-          status: 'active' | 'used'
-          issued_source: 'manual' | 'survey'
+          status: 'active' | 'used' | 'cancelled'
+          issued_source: 'manual' | 'survey' | 'payment' | 'program'
           issued_phone: string | null
           phone: string | null
+          client_id: string | null
+          booth_id: string | null
+          event_id: string | null
+          source_label: string | null
+          issued_from_order_id: string | null
           note: string | null
           expires_at: string
           used_at: string | null
@@ -415,10 +420,15 @@ export interface Database {
           code: string
           discount_amount: number
           min_order_amount?: number
-          status?: 'active' | 'used'
-          issued_source?: 'manual' | 'survey'
+          status?: 'active' | 'used' | 'cancelled'
+          issued_source?: 'manual' | 'survey' | 'payment' | 'program'
           issued_phone?: string | null
           phone?: string | null
+          client_id?: string | null
+          booth_id?: string | null
+          event_id?: string | null
+          source_label?: string | null
+          issued_from_order_id?: string | null
           note?: string | null
           expires_at: string
           used_at?: string | null
@@ -433,10 +443,15 @@ export interface Database {
           code?: string
           discount_amount?: number
           min_order_amount?: number
-          status?: 'active' | 'used'
-          issued_source?: 'manual' | 'survey'
+          status?: 'active' | 'used' | 'cancelled'
+          issued_source?: 'manual' | 'survey' | 'payment' | 'program'
           issued_phone?: string | null
           phone?: string | null
+          client_id?: string | null
+          booth_id?: string | null
+          event_id?: string | null
+          source_label?: string | null
+          issued_from_order_id?: string | null
           note?: string | null
           expires_at?: string
           used_at?: string | null
@@ -459,6 +474,27 @@ export interface Database {
             columns: ['used_payment_id']
             isOneToOne: false
             referencedRelation: 'payments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'coupons_booth_id_fkey'
+            columns: ['booth_id']
+            isOneToOne: false
+            referencedRelation: 'food_booths'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'coupons_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'festival_events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'coupons_issued_from_order_id_fkey'
+            columns: ['issued_from_order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
             referencedColumns: ['id']
           },
         ]

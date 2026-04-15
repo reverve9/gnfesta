@@ -8,6 +8,9 @@
    - `0001_gnfesta_initial.sql` — 전체 스키마 + 시드 (festivals/food_categories)
    - `0002_food_categories_gnfesta.sql` — 카테고리 GNfesta 용으로 교체 (한·중·일·퓨전 → 베이커리·로컬푸드·디저트·기타)
    - `0003_dummy_booths.sql` — `etc` → `beverage`(음료) + 더미 부스 50개 시드
+   - `0004_menus_and_accounts.sql` — 메뉴 100 + 부스 계정 50 시드
+   - `0005_menu_type.sql` — 메뉴/주문 타입 분기 (instant / cook)
+   - `0006_coupon_sources.sql` — 쿠폰 소스 확장 (payment/program) + client_id + 회수 지원
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행
@@ -33,7 +36,7 @@
 | `payments` | Toss 결제 헤더 |
 | `orders` | 부스별 주문 (1 payment = N orders) |
 | `order_items` | 주문 라인 아이템 |
-| `coupons` | 번호입력식 쿠폰 (설문/수동) |
+| `coupons` | 번호입력식 쿠폰 (설문/수동/결제/프로그램 — 스탬프랠리 포함) |
 | `booth_order_counters` | 부스별 누적 주문번호 카운터 |
 | `booth_accounts` | 부스 직원 로그인 (bcrypt) |
 | `surveys` | 만족도 조사 (JSONB answers) |
