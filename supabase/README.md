@@ -5,13 +5,16 @@
 1. Supabase Studio 로그인 → 프로젝트 선택 (`kjtplptbkjlchfmovgph`)
 2. 왼쪽 메뉴 **SQL Editor** 진입
 3. `migrations/` 하위 파일을 **순번대로** 복사 → 붙여넣기 → **Run**
-   - `0001_gnfesta_initial.sql` — 전체 스키마 + 시드
-   - `0002_food_categories_gnfesta.sql` — 카테고리 GNfesta 용으로 교체
+   - `0001_gnfesta_initial.sql` — 전체 스키마 + 시드 (festivals/food_categories)
+   - `0002_food_categories_gnfesta.sql` — 카테고리 GNfesta 용으로 교체 (한·중·일·퓨전 → 베이커리·로컬푸드·디저트·기타)
+   - `0003_dummy_booths.sql` — `etc` → `beverage`(음료) + 더미 부스 50개 시드
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행
    SELECT slug, label FROM food_categories ORDER BY sort_order;
-   -- bakery/localfood/dessert/etc 4행 (0002 적용 후)
+   -- bakery/localfood/dessert/beverage 4행 (0003 적용 후)
+   SELECT category, COUNT(*) FROM food_booths GROUP BY category ORDER BY category;
+   -- bakery 20 / dessert 10 / beverage 10 / localfood 10 (0003 적용 후)
    SELECT table_name FROM information_schema.tables
      WHERE table_schema = 'public' ORDER BY table_name;
    ```
