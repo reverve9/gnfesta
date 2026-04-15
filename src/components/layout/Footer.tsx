@@ -1,5 +1,6 @@
 import { AtSign, Mail, Phone } from 'lucide-react'
 import Text from '@/components/ui/Text'
+import BrandLogo from './BrandLogo'
 import styles from './Footer.module.css'
 
 export default function Footer() {
@@ -7,11 +8,7 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.info}>
-          <img
-            src="/images/header_logo.png"
-            alt="2026 강릉봄푸드페스타"
-            className={styles.logo}
-          />
+          <BrandLogo size="sm" />
           <Text variant="caption" color="secondary">
             강원특별자치도 강릉시 일원 (TBD)
           </Text>
@@ -48,18 +45,7 @@ export default function Footer() {
             </a>
           </div>
         </div>
-        <div className={styles.sponsorsBlock}>
-          <img
-            src="/images/footer_host.png"
-            alt="주최·주관"
-            className={`${styles.sponsorRow} ${styles.sponsorRowHost}`}
-          />
-          <img
-            src="/images/footer_sponsors.png"
-            alt="후원"
-            className={`${styles.sponsorRow} ${styles.sponsorRowSponsors}`}
-          />
-        </div>
+        {/* TODO: 주최/주관/후원 로고 이미지 확정되면 복원. 현재는 Moosan 에셋이라 제거. */}
         <div className={styles.copyright}>
           <Text variant="caption" color="muted" className={styles.copyrightText}>
             &copy; 강릉봄푸드페스타 2026 All Rights Reserved

@@ -1,0 +1,58 @@
+.logo {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.korean {
+  font-family: var(--font-base);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.english {
+  font-family: var(--font-base);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  line-height: 1.2;
+  margin-top: 3px;
+}
+
+/* ─── 크기 변형 ─── */
+.sm .korean {
+  font-size: 15px;
+}
+.sm .english {
+  font-size: 9px;
+}
+
+.md .korean {
+  font-size: 18px;
+}
+.md .english {
+  font-size: 10px;
+}
+
+.lg .korean {
+  font-size: clamp(28px, 8cqw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.lg .english {
+  font-size: clamp(10px, 2.4cqw, 18px);
+  letter-spacing: 0.18em;
+  margin-top: 6px;
+}
+
+/* ─── 반전 (배경 어두운 곳에서 밝게) ─── */
+.inverse {
+  color: var(--color-text-inverse);
+}
+
+.inverse .english {
+  opacity: 0.85;
+}

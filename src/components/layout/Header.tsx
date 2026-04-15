@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isNoBackPage, isSubPage } from '@/lib/routing'
 import { useCart } from '@/store/cartStore'
 import { isDevMode } from '@/config/flags'
+import BrandLogo from './BrandLogo'
 import styles from './Header.module.css'
 
 const MENU_ITEMS = [
@@ -82,11 +83,7 @@ export default function Header() {
           </button>
         )}
         <Link to="/" className={styles.logo} aria-label="강릉봄푸드페스타 홈">
-          <img
-            src="/images/header_logo.png"
-            alt="강릉봄푸드페스타"
-            className={styles.logoImage}
-          />
+          <BrandLogo size="sm" inverse={transparent} />
         </Link>
         <div className={styles.actions}>
           <button
