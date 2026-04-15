@@ -1,0 +1,13 @@
+.home {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-6));
+  container-type: inline-size;
+}

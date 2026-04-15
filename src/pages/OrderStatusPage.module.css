@@ -1,0 +1,466 @@
+.page {
+  padding: var(--space-6) var(--space-5);
+  padding-bottom: var(--space-12);
+}
+
+/* ──────────────── 로딩/에러 공통 ──────────────── */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-16) var(--space-5);
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-bg-secondary);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.muted {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.errorIcon {
+  width: 56px;
+  height: 56px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.cta {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cta:hover {
+  background-color: var(--color-primary-light);
+}
+
+/* ──────────────── 컨테이너 ──────────────── */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+/* ──────────────── 준비완료 스트립 ──────────────── */
+.readyStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--space-5);
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  gap: var(--space-3);
+}
+
+.readyStripText {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.readyStripBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #FFFFFF;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.readyStripBtn:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ──────────────── 상태 카드 ──────────────── */
+.statusCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  background-color: var(--color-surface);
+}
+
+.statusIcon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-secondary);
+}
+
+.statusIcon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--color-text-secondary);
+}
+
+.statusText {
+  flex: 1;
+  min-width: 0;
+}
+
+.statusTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.statusSub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.cancelReason {
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #7f1d1d;
+  background-color: rgba(220, 38, 38, 0.08);
+  border-left: 3px solid #dc2626;
+  border-radius: 4px;
+  line-height: 1.45;
+}
+
+/* 상태별 색상 — 카드 액센트 */
+.status_paid .statusIcon {
+  background-color: color-mix(in srgb, var(--color-text-muted) 15%, var(--color-bg-secondary));
+}
+
+.status_confirmed {
+  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+}
+.status_confirmed .statusIcon {
+  background-color: color-mix(in srgb, #f59e0b 18%, transparent);
+}
+.status_confirmed .statusIcon svg {
+  color: #d97706;
+}
+
+.status_completed {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+.status_completed .statusIcon {
+  background-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.status_completed .statusIcon svg {
+  color: var(--color-primary);
+}
+
+.status_cancelled .statusIcon svg {
+  color: #c0392b;
+}
+
+.status_partial {
+  border-color: #FCA5A5;
+}
+.status_partial .statusIcon {
+  background-color: #FEF2F2;
+}
+.status_partial .statusIcon svg {
+  color: #DC2626;
+}
+
+/* ──────────────── 메타 정보 ──────────────── */
+.metaBox {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.metaLabel {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.metaValue {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.metaValueStrong {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────── 섹션 ──────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* ──────────────── 부스 그룹 ──────────────── */
+.boothList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.boothGroup {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-base);
+}
+
+.booth_preparing {
+  border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+}
+
+.booth_ready {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.booth_cancelled {
+  border-color: #FCA5A5;
+  background-color: #FFFBFB;
+}
+
+.boothCancelBox {
+  padding: 12px 16px;
+  background-color: #FEF2F2;
+  border-bottom: 1px solid #FECACA;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.boothCancelLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #991B1B;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.boothCancelReason {
+  font-size: 13px;
+  font-weight: 600;
+  color: #7F1D1D;
+  line-height: 1.4;
+}
+
+.boothCancelRefund {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #991B1B;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemCancelled .itemName,
+.itemCancelled .itemQty,
+.itemCancelled .itemPrice {
+  color: #9CA3AF;
+  text-decoration: line-through;
+}
+
+.refundText {
+  color: #DC2626;
+}
+
+.boothHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.boothName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.orderNo {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.boothStatusBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.booth_preparing .boothStatusBadge {
+  background-color: color-mix(in srgb, #f59e0b 12%, var(--color-surface));
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+}
+
+.booth_ready .boothStatusBadge {
+  background-color: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* ──────────────── 아이템 ──────────────── */
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.item:first-child {
+  border-top: none;
+}
+
+.itemName {
+  font-size: 13px;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+  word-break: keep-all;
+}
+
+.itemQty {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.itemPrice {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────── 픽업 안내 ──────────────── */
+.pickupNotice {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* ──────────────── 하단 액션 ──────────────── */
+.actions {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.actionPrimary {
+  padding: var(--space-3) var(--space-5);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  transition: background-color var(--transition-fast);
+}
+
+.actionPrimary:hover {
+  background-color: var(--color-primary-light);
+}
+
+.actionSecondary {
+  padding: var(--space-3) var(--space-5);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.actionSecondary:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

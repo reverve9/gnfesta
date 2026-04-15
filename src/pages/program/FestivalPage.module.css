@@ -1,0 +1,166 @@
+.page {
+  width: 100%;
+  /* --festival-tint 는 인라인 style 로 DB theme_color 가 주입됨.
+     theme_accent 컬럼 추가 전까지 --festival-accent 기본 fallback 값 유지. */
+  --festival-tint: #FBF1CC;
+  --festival-accent: #E8B935;
+}
+
+.about {
+  padding: 0 var(--space-5) var(--space-4);
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 4cqw; /* 24px @ 600 */
+  align-items: start;
+}
+
+.posterWrap {
+  width: 100%;
+}
+
+.poster {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* ──────────────── GNfesta: 인용 블록 (포스터 없음, 박스 없음) ──────────────── */
+.quoteSection {
+  padding: var(--space-2) var(--space-10) var(--space-6);
+}
+
+.quote {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.667cqw; /* 16px @ 600 */
+}
+
+.quote::before {
+  content: '';
+  display: block;
+  width: 13cqw; /* 78px @ 600 */
+  height: 3px;
+  background-color: var(--color-primary);
+  margin-bottom: 2cqw; /* 12px @ 600 */
+}
+
+.quoteText {
+  margin: 0;
+  font-family: var(--font-base);
+  font-size: var(--text-cq-card-title);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.7;
+  letter-spacing: -0.005em;
+  color: var(--color-text);
+  text-align: center;
+  word-break: keep-all;
+}
+
+.posterPlaceholder {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+}
+
+.descriptionGroup {
+  display: block;
+}
+
+.description + .description {
+  margin-top: 0.5em;
+}
+
+.description {
+  font-family: var(--font-base);
+  font-size: var(--text-cq-body);
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--color-text-secondary);
+  margin: 0;
+  text-align: justify;
+  word-break: break-all;
+}
+
+/* 드롭캡: 정사각형 박스(2줄 높이 = 2 × line-height)로 만들고
+   float 으로 본문이 박스 우측·하단을 자연스럽게 감싸도록 정렬 */
+.dropCap {
+  float: left;
+  width: 2.8em;
+  height: 2.8em;
+  margin: 0 0.5em 0 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--festival-tint);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 1em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dropCapChar {
+  font-size: 2em;
+  line-height: 1;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 3.333cqw; /* 20px @ 600 */
+}
+
+.infoLine {
+  margin: 0;
+  padding: 2cqw 4.667cqw; /* 12px 28px @ 600 */
+  background-color: var(--color-gray-100);
+  border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: baseline;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.infoItem {
+  display: flex;
+  align-items: baseline;
+  gap: 1.333cqw; /* 8px @ 600 */
+  margin: 0;
+  white-space: nowrap;
+}
+
+.infoItem:first-child {
+  justify-self: start;
+}
+
+.infoItem:last-child {
+  justify-self: end;
+}
+
+.infoLabel {
+  font-family: var(--font-base);
+  font-size: var(--text-cq-label);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.infoValue {
+  font-family: var(--font-base);
+  font-size: var(--text-cq-label);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}

@@ -1,0 +1,209 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--max-width);
+  height: var(--header-height);
+  z-index: var(--z-header);
+}
+
+/* bg/border 를 가상 요소의 opacity 로 전환 — `transparent` 키워드가
+   rgba(0,0,0,0) 로 해석돼서 페이드 도중 다크 회색이 비치는 이슈 회피 */
+.header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-bg);
+  border-bottom: 1px solid var(--color-border-light);
+  box-sizing: border-box;
+  opacity: 1;
+  transition: opacity var(--transition-base);
+  pointer-events: none;
+}
+
+.header.transparent::before {
+  opacity: 0;
+}
+
+.inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  height: 100%;
+  padding: 0 var(--page-padding-x);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  color: var(--color-text);
+  transition: opacity var(--transition-fast);
+}
+
+.backButton:active {
+  opacity: 0.6;
+}
+
+.backIcon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.logoImage {
+  height: 38%;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  filter: brightness(0);
+  transition: filter var(--transition-base);
+}
+
+.header.transparent .logoImage {
+  filter: none;
+}
+
+.actions {
+  position: absolute;
+  right: var(--page-padding-x);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.menu {
+  position: relative;
+}
+
+.cartButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  color: var(--color-text);
+  transition: opacity var(--transition-fast),
+    color var(--transition-base);
+}
+
+.header.transparent .cartButton {
+  color: var(--color-text-inverse);
+}
+
+.cartButton:active {
+  opacity: 0.6;
+}
+
+.cartButton.dimmed {
+  opacity: 0.4;
+}
+
+.cartIcon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.cartBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: 1.5px solid var(--color-bg);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.header.transparent .cartBadge {
+  border-color: transparent;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  color: var(--color-text);
+  transition: opacity var(--transition-fast),
+    color var(--transition-base);
+}
+
+.header.transparent .menuButton {
+  color: var(--color-text-inverse);
+}
+
+.menuButton:active {
+  opacity: 0.6;
+}
+
+.menuIcon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 160px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--z-header);
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.dropdownItem:active {
+  background-color: var(--color-bg-secondary);
+}
+
+.dropdownItem.dimmed {
+  opacity: 0.4;
+}
+
+.dropdownIcon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--color-text-secondary);
+}

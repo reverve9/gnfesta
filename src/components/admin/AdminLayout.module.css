@@ -1,0 +1,247 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #F9FAFB;
+}
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  border-right: 1px solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  cursor: pointer;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.nav {
+  flex: 1;
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navGroupTitle {
+  padding: 4px 14px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9CA3AF;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  border-radius: 8px;
+  transition: all 150ms ease;
+}
+
+.navBadge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  border-radius: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 미확인 주문 = primary */
+.navBadgePending {
+  background-color: var(--color-primary);
+}
+
+/* 1분 초과 = 주황 */
+.navBadgeWarn {
+  background-color: #F59E0B;
+}
+
+/* 조리시간 초과 = 파랑 */
+.navBadgeOverdue {
+  background-color: #3B82F6;
+}
+
+/* 2분 초과 = 빨강 + pulse */
+.navBadgeAlert {
+  background-color: #DC2626;
+  animation: navBadgePulse 1.2s ease-in-out infinite;
+}
+
+@keyframes navBadgePulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+}
+
+.navItem:hover {
+  background-color: #F3F4F6;
+  color: #111827;
+}
+
+.navItemActive {
+  background-color: #F0FDF4;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.navIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebarFooter {
+  padding: 12px 8px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  border-radius: 8px;
+  transition: all 150ms ease;
+}
+
+.logoutBtn:hover {
+  background-color: #F3F4F6;
+  color: #111827;
+}
+
+.content {
+  flex: 1;
+  margin-left: 240px;
+  padding: 32px;
+  min-width: 0;
+}
+
+/* ── Login ── */
+
+.loginOverlay {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F3F4F6;
+}
+
+.loginModal {
+  width: 100%;
+  max-width: 380px;
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  padding: 40px 32px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.loginTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.loginSub {
+  font-size: 13px;
+  color: #9CA3AF;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loginInput {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: #111827;
+  background-color: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  transition: border-color 150ms ease;
+}
+
+.loginInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background-color: #FFFFFF;
+}
+
+.loginError {
+  font-size: 13px;
+  color: #EF4444;
+  text-align: center;
+}
+
+.loginBtn {
+  height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  border-radius: 10px;
+  margin-top: 4px;
+  transition: background-color 150ms ease;
+}
+
+.loginBtn:hover {
+  background-color: var(--color-primary-dark);
+}
