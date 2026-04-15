@@ -1,4 +1,4 @@
-import { ArrowLeft, Menu, ClipboardCheck, ClipboardList, Megaphone, MapPin, SquarePen } from 'lucide-react'
+import { ArrowLeft, Menu, ClipboardCheck, ClipboardList, Megaphone, MapPin } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isNoBackPage, isSubPage } from '@/lib/routing'
@@ -8,7 +8,6 @@ import styles from './Header.module.css'
 
 const MENU_ITEMS = [
   { label: '공지사항', path: '/notice', icon: Megaphone, dimmed: false },
-  { label: '참가신청', path: '/apply', icon: SquarePen, dimmed: false },
   { label: '만족도조사', path: '/survey', icon: ClipboardCheck, dimmed: !isDevMode },
   { label: '오시는 길', path: '/location', icon: MapPin, dimmed: !isDevMode },
 ]

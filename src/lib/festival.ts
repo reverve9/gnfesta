@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Festival, Program } from '@/types/database'
+import type { Festival } from '@/types/database'
 import type {
   FestivalEvent,
   FestivalGuest,
@@ -14,9 +14,9 @@ const STORAGE_BUCKET = 'festival-assets'
  * Storage path 또는 정적/외부 경로 → 사용 가능한 URL
  *
  * 케이스
- *  · 'festivals/youth/poster.png' → supabase storage public URL
- *  · '/images/thumb_xxx.png'      → 정적 public 경로 그대로 반환 (시드 데이터 호환)
- *  · 'https://...'                → 외부 URL 그대로 반환
+ *  · 'festivals/gnfesta/poster.png' → supabase storage public URL
+ *  · '/images/thumb_xxx.png'        → 정적 public 경로 그대로 반환 (시드 데이터 호환)
+ *  · 'https://...'                  → 외부 URL 그대로 반환
  */
 export function getAssetUrl(path: string | null | undefined): string | null {
   if (!path) return null
@@ -28,31 +28,20 @@ export function getAssetUrl(path: string | null | undefined): string | null {
 }
 
 /**
- * slug 로 festival 단건 조회 (소속 programs 함께)
+ * slug 로 festival 단건 조회
  */
 export async function fetchFestivalBySlug(slug: string): Promise<{
   festival: Festival
-  programs: Program[]
 } | null> {
-  const { data: festival, error: festivalError } = await supabase
+  const { data: festival, error } = await supabase
     .from('festivals')
     .select('*')
     .eq('slug', slug)
     .eq('is_active', true)
     .single()
 
-  if (festivalError || !festival) return null
-
-  const { data: programs, error: programsError } = await supabase
-    .from('programs')
-    .select('*')
-    .eq('festival_id', festival.id)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-
-  if (programsError) return { festival, programs: [] }
-
-  return { festival, programs: programs ?? [] }
+  if (error || !festival) return null
+  return { festival }
 }
 
 /**

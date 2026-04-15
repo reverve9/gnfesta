@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import StepIndicator from '../apply/StepIndicator'
+import StepIndicator from './StepIndicator'
 import SurveyStep1Basic from './SurveyStep1Basic'
 import SurveyStep2Experience from './SurveyStep2Experience'
 import SurveyStep3Evaluation from './SurveyStep3Evaluation'

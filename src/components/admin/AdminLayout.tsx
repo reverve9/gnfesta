@@ -1,4 +1,4 @@
-import { Sparkles, Cake, FileText, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, LogOut } from 'lucide-react'
+import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import type { ComponentType, SVGProps } from 'react'
@@ -25,7 +25,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: '운영',
     items: [
       { label: '공지사항 관리', path: '/notices', icon: Megaphone },
-      { label: '참가신청 관리', path: '/applications', icon: FileText },
       { label: '쿠폰 관리', path: '/coupons', icon: Ticket },
       { label: '매출 관리', path: '/revenue', icon: ChartColumn },
       { label: '만족도조사 관리', path: '/survey', icon: ClipboardList },

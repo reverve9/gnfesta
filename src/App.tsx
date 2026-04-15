@@ -3,8 +3,6 @@ import Layout from '@/components/layout/Layout'
 import AdminLayout from '@/components/admin/AdminLayout'
 import HomePage from '@/pages/HomePage'
 import SchedulePage from '@/pages/SchedulePage'
-import ProgramsPage from '@/pages/ProgramsPage'
-import ApplyPage from '@/pages/ApplyPage'
 import LocationPage from '@/pages/LocationPage'
 import NoticePage from '@/pages/NoticePage'
 import NoticeDetailPage from '@/pages/NoticeDetailPage'
@@ -16,11 +14,9 @@ import CheckoutFailPage from '@/pages/CheckoutFailPage'
 import OrderStatusPage from '@/pages/OrderStatusPage'
 import ComingSoonPage from '@/pages/ComingSoonPage'
 import { isDevMode } from '@/config/flags'
-import ProgramDetailPage from '@/pages/program/ProgramDetailPage'
 import FestivalPage from '@/pages/program/FestivalPage'
 import AdminRevenue from '@/pages/admin/AdminRevenue'
 import AdminSurvey from '@/pages/admin/AdminSurvey'
-import AdminApplications from '@/pages/admin/AdminApplications'
 import AdminContentDetail from '@/pages/admin/AdminContentDetail'
 import AdminFood from '@/pages/admin/AdminFood'
 import AdminBoothAccounts from '@/pages/admin/AdminBoothAccounts'
@@ -73,7 +69,6 @@ function AdminRoutes() {
       <Route path="/" element={<AdminLayout />}>
         <Route index element={<Navigate to="/notices" replace />} />
         <Route path="notices" element={<AdminNotices />} />
-        <Route path="applications" element={<AdminApplications />} />
         <Route path="coupons" element={<AdminCoupons />} />
         <Route path="revenue" element={<AdminRevenue />} />
         <Route path="survey" element={<AdminSurvey />} />
@@ -98,9 +93,6 @@ function CustomerRoutes() {
       {/* User */}
       <Route element={<Layout />}>
         <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/programs" element={<ProgramsPage />} />
-        <Route path="/apply" element={<ApplyPage />} />
-        <Route path="/apply/:slug" element={<ApplyPage />} />
         <Route path="/survey" element={isDevMode ? <SurveyPage /> : <ComingSoonPage />} />
         <Route path="/location" element={isDevMode ? <LocationPage /> : <ComingSoonPage />} />
         <Route path="/notice" element={<NoticePage />} />
@@ -113,7 +105,6 @@ function CustomerRoutes() {
         {/* Festival 페이지: gnfesta(메인) / food(내부 섹션) — 같은 컴포넌트 공유 */}
         <Route path="/program/gnfesta" element={<FestivalPage slug="gnfesta" />} />
         <Route path="/program/food" element={isDevMode ? <FestivalPage slug="food" /> : <ComingSoonPage />} />
-        <Route path="/program/:slug" element={<ProgramDetailPage />} />
       </Route>
     </Routes>
   )
