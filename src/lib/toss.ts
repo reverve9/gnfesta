@@ -26,8 +26,17 @@ export interface ConfirmPaymentInput {
   amount: number
 }
 
+export interface ConfirmPaymentResult {
+  /** 서버가 DB 상태로 "이미 승인됨" 판정 → Toss 호출 스킵된 재진입 케이스 */
+  alreadyConfirmed?: boolean
+  paymentId?: string
+  [k: string]: unknown
+}
+
 /** 서버사이드(/api/payments/confirm) 를 통한 결제 승인 호출 */
-export async function confirmPayment(input: ConfirmPaymentInput) {
+export async function confirmPayment(
+  input: ConfirmPaymentInput,
+): Promise<ConfirmPaymentResult> {
   const res = await fetch('/api/payments/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -37,5 +46,5 @@ export async function confirmPayment(input: ConfirmPaymentInput) {
   if (!res.ok) {
     throw new Error(data?.message || data?.error || '결제 승인에 실패했습니다')
   }
-  return data
+  return data as ConfirmPaymentResult
 }

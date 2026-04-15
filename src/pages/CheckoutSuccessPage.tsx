@@ -41,18 +41,39 @@ export default function CheckoutSuccessPage() {
         const payment = await findPaymentByTossOrderId(tossOrderId)
         if (!payment) throw new Error('결제 정보를 찾을 수 없습니다')
 
-        // 2) 금액 검증 (위변조 방지)
+        // 2) 재진입 분기 — 새로고침 / 뒤로가기 / 앞으로가기로 success URL 재방문 시
+        //    같은 orderId 로 Toss confirm 을 재호출하면 "이미 승인 및 취소가
+        //    진행된 중복된 주문번호" 400 이 나온다. DB 상태로 선분기.
+        if (payment.status === 'paid') {
+          clear()
+          setPaymentId(payment.id)
+          setPhase('success')
+          navigate(`/order/${payment.id}?from=checkout`, { replace: true })
+          return
+        }
+        if (payment.status === 'cancelled') {
+          throw new Error('취소된 결제입니다')
+        }
+
+        // 3) 금액 검증 (위변조 방지)
         if (payment.total_amount !== amount) {
           throw new Error('결제 금액이 일치하지 않습니다')
         }
 
-        // 3) 토스 confirm API (server-side)
-        await confirmPayment({ paymentKey, orderId: tossOrderId, amount })
+        // 4) 토스 confirm API (server-side) — 서버도 동일 분기로 방어함.
+        //    서버가 race 로 'paid' 판정을 더 빨리 한 경우 alreadyConfirmed 로 응답.
+        const confirmResult = await confirmPayment({
+          paymentKey,
+          orderId: tossOrderId,
+          amount,
+        })
 
-        // 4) payments + 하위 orders 전부 paid 상태로 전이
-        await markPaymentPaid(payment.id, paymentKey)
+        if (!confirmResult.alreadyConfirmed) {
+          // 5) payments + 하위 orders 전부 paid 상태로 전이
+          await markPaymentPaid(payment.id, paymentKey)
+        }
 
-        // 5) 카트 비우기
+        // 6) 카트 비우기
         clear()
 
         setPaymentId(payment.id)
