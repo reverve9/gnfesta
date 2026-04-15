@@ -4,11 +4,14 @@
 
 1. Supabase Studio 로그인 → 프로젝트 선택 (`kjtplptbkjlchfmovgph`)
 2. 왼쪽 메뉴 **SQL Editor** 진입
-3. `migrations/0001_gnfesta_initial.sql` 전체 내용 복사 → 붙여넣기 → **Run**
+3. `migrations/` 하위 파일을 **순번대로** 복사 → 붙여넣기 → **Run**
+   - `0001_gnfesta_initial.sql` — 전체 스키마 + 시드
+   - `0002_food_categories_gnfesta.sql` — 카테고리 GNfesta 용으로 교체
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행
-   SELECT slug, label FROM food_categories;    -- korean/chinese/japanese/fusion 4행
+   SELECT slug, label FROM food_categories ORDER BY sort_order;
+   -- bakery/localfood/dessert/etc 4행 (0002 적용 후)
    SELECT table_name FROM information_schema.tables
      WHERE table_schema = 'public' ORDER BY table_name;
    ```
