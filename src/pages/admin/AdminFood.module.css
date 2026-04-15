@@ -759,6 +759,26 @@ select.input {
   gap: 8px;
 }
 
+.menuTypeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.menuTypeLabel {
+  font-weight: 600;
+  color: #111827;
+}
+
+.menuTypeOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
 .menuSaveBtn {
   display: inline-flex;
   align-items: center;

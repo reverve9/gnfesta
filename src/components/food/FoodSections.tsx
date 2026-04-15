@@ -1,6 +1,6 @@
 import { Minus, Plus, X, Image as ImageIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { fetchFoodBooths, getAssetUrl } from '@/lib/festival'
 import { supabase } from '@/lib/supabase'
 import {
@@ -44,7 +44,9 @@ export default function FoodSections({ festival }: Props) {
     () => new Map(),
   )
   const { hash } = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const scrolledRef = useRef('')
+  const openedBoothRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (hash !== '#booths') {
@@ -59,6 +61,21 @@ export default function FoodSections({ festival }: Props) {
       }, 100)
     }
   }, [hash, booths])
+
+  // ─── QR 딥링크 ── `?booth={boothId}` 로 진입 시 해당 부스 모달 자동 오픈 ──
+  useEffect(() => {
+    const boothId = searchParams.get('booth')
+    if (!boothId || booths.length === 0) return
+    if (openedBoothRef.current === boothId) return
+    const target = booths.find((b) => b.id === boothId)
+    if (!target) return
+    openedBoothRef.current = boothId
+    setSelectedBooth(target)
+    // 주소창 정리 — 모달 닫은 뒤 재오픈 방지 & 뒤로가기 자연스러움
+    const next = new URLSearchParams(searchParams)
+    next.delete('booth')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, booths, setSearchParams])
 
   const categoryLabel = useMemo(() => {
     const map = new Map<string, string>()
@@ -548,6 +565,7 @@ function MenuItemRow({
       price: menu.price,
       quantity: pendingQty,
       imageUrl: menu.image_url ?? undefined,
+      menuType: menu.menu_type,
     })
     showToast(`장바구니에 ${pendingQty}개 담았어요`)
     setPendingQty(1)

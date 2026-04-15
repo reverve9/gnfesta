@@ -297,6 +297,7 @@ export interface Database {
           is_sold_out: boolean
           sort_order: number
           is_active: boolean
+          menu_type: 'instant' | 'cook'
           created_at: string
           updated_at: string
         }
@@ -311,6 +312,7 @@ export interface Database {
           is_sold_out?: boolean
           sort_order?: number
           is_active?: boolean
+          menu_type?: 'instant' | 'cook'
           created_at?: string
           updated_at?: string
         }
@@ -325,6 +327,7 @@ export interface Database {
           is_sold_out?: boolean
           sort_order?: number
           is_active?: boolean
+          menu_type?: 'instant' | 'cook'
           created_at?: string
           updated_at?: string
         }
@@ -547,6 +550,7 @@ export interface Database {
           cancelled_at: string | null
           cancel_reason: string | null
           cancelled_by: 'booth' | 'admin' | null
+          order_type: 'instant' | 'cook'
           festival_id: string | null
           meta: Json
           created_at: string
@@ -569,6 +573,7 @@ export interface Database {
           cancelled_at?: string | null
           cancel_reason?: string | null
           cancelled_by?: 'booth' | 'admin' | null
+          order_type?: 'instant' | 'cook'
           festival_id?: string | null
           meta?: Json
           created_at?: string
@@ -591,6 +596,7 @@ export interface Database {
           cancelled_at?: string | null
           cancel_reason?: string | null
           cancelled_by?: 'booth' | 'admin' | null
+          order_type?: 'instant' | 'cook'
           festival_id?: string | null
           meta?: Json
           created_at?: string

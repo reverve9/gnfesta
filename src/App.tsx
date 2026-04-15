@@ -24,6 +24,7 @@ import AdminMonitor from '@/pages/admin/AdminMonitor'
 import AdminOrders from '@/pages/admin/AdminOrders'
 import AdminCoupons from '@/pages/admin/AdminCoupons'
 import AdminNotices from '@/pages/admin/AdminNotices'
+import AdminQrCodes from '@/pages/admin/AdminQrCodes'
 import BoothLoginPage from '@/pages/booth/BoothLoginPage'
 import BoothDashboardPage from '@/pages/booth/BoothDashboardPage'
 import FloatingInstallButton from '@/components/pwa/FloatingInstallButton'
@@ -78,6 +79,7 @@ function AdminRoutes() {
         <Route path="booth-accounts" element={<AdminBoothAccounts />} />
         <Route path="monitor" element={<AdminMonitor />} />
         <Route path="orders" element={<AdminOrders />} />
+        <Route path="qrcodes" element={<AdminQrCodes />} />
       </Route>
       <Route path="*" element={<Navigate to="/notices" replace />} />
     </Routes>
@@ -105,6 +107,7 @@ function CustomerRoutes() {
         {/* Festival 페이지: gnfesta(메인) / food(내부 섹션) — 같은 컴포넌트 공유 */}
         <Route path="/program/gnfesta" element={<FestivalPage slug="gnfesta" />} />
         <Route path="/program/food" element={isDevMode ? <FestivalPage slug="food" /> : <ComingSoonPage />} />
+        <Route path="/stamp-rally" element={<ComingSoonPage />} />
       </Route>
     </Routes>
   )

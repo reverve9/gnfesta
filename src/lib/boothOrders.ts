@@ -175,7 +175,13 @@ export function subscribeBoothOrders(
         if (payload.eventType === 'UPDATE') {
           const newRow = payload.new as { id?: string; status?: string } | null
           const oldRow = payload.old as { status?: string } | null
-          if (newRow?.status === 'paid' && oldRow?.status !== 'paid' && newRow.id) {
+          // 신규 주문 도착 알림.
+          //  · cook   : pending → paid
+          //  · instant: pending → completed (markPaymentPaid 에서 즉시 completed)
+          const arrived =
+            oldRow?.status === 'pending' &&
+            (newRow?.status === 'paid' || newRow?.status === 'completed')
+          if (arrived && newRow?.id) {
             callbacks.onOrderPaid?.(newRow.id)
           }
           if (

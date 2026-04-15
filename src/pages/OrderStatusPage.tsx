@@ -49,9 +49,22 @@ function getStatusLabel(
     cancelled: { title: '취소됨', sub: '주문이 취소되었습니다' },
     partial: { title: '일부 취소', sub: '일부 매장이 주문을 거절해 환불 처리됐어요' },
   }
+  // 살아있는 주문이 전부 instant 인 경우는 조리 단계 없이 픽업 메시지로 대체.
+  const liveOrders = orders.filter((o) => o.order.status !== 'cancelled')
+  const allInstant =
+    liveOrders.length > 0 && liveOrders.every((o) => o.order.order_type === 'instant')
+  if (allInstant) {
+    if (status === 'completed' || status === 'paid' || status === 'confirmed') {
+      return { title: '준비완료', sub: '잠시 후 픽업해 주세요' }
+    }
+  }
   if (status === 'confirmed') {
     const confirmedOrders = orders.filter(
-      (o) => o.order.confirmed_at && !o.order.ready_at && o.order.estimated_minutes,
+      (o) =>
+        o.order.order_type === 'cook' &&
+        o.order.confirmed_at &&
+        !o.order.ready_at &&
+        o.order.estimated_minutes,
     )
     if (confirmedOrders.length > 0) {
       const maxMin = Math.max(...confirmedOrders.map((o) => o.order.estimated_minutes!))
@@ -62,6 +75,10 @@ function getStatusLabel(
 }
 
 function boothStatusLabel(status: BoothStatus, order: Order): string {
+  // instant 주문은 조리 단계 없이 결제 즉시 픽업 가능.
+  if (order.order_type === 'instant' && status !== 'cancelled') {
+    return '바로픽업 · 픽업해 주세요'
+  }
   if (status === 'preparing' && order.estimated_minutes) {
     return `매장 확인완료 · 약 ${order.estimated_minutes}분 후 준비됩니다`
   }
@@ -357,11 +374,19 @@ export default function OrderStatusPage() {
           </ul>
         </div>
 
-        {uiStatus === 'completed' && (
-          <div className={styles.pickupNotice}>
-            🎉 모든 음식이 조리 완료됐어요! 매장에서 픽업해주세요
-          </div>
-        )}
+        {uiStatus === 'completed' && (() => {
+          const liveOrders = orders.filter((o) => o.order.status !== 'cancelled')
+          const allInstant =
+            liveOrders.length > 0 &&
+            liveOrders.every((o) => o.order.order_type === 'instant')
+          return (
+            <div className={styles.pickupNotice}>
+              {allInstant
+                ? '🎉 바로픽업 상품입니다. 매장에서 픽업해주세요'
+                : '🎉 모든 음식이 조리 완료됐어요! 매장에서 픽업해주세요'}
+            </div>
+          )
+        })()}
 
         {/* ─── 하단 액션 ─── */}
         <div className={styles.actions}>

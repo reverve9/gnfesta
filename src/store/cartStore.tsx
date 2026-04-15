@@ -19,6 +19,7 @@ export interface CartItem {
   price: number
   quantity: number
   imageUrl?: string
+  menuType: 'instant' | 'cook'
 }
 
 interface CartState {
@@ -108,17 +109,23 @@ function loadFromStorage(): CartItem[] {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     // 최소한의 shape 검증 — 잘못된 데이터 무시
-    return parsed.filter(
-      (i): i is CartItem =>
-        typeof i?.menuId === 'string' &&
-        typeof i?.boothId === 'string' &&
-        typeof i?.boothNo === 'string' &&
-        typeof i?.boothName === 'string' &&
-        typeof i?.menuName === 'string' &&
-        typeof i?.price === 'number' &&
-        typeof i?.quantity === 'number' &&
-        i.quantity > 0,
-    )
+    return parsed
+      .filter(
+        (i): i is Omit<CartItem, 'menuType'> & { menuType?: unknown } =>
+          typeof i?.menuId === 'string' &&
+          typeof i?.boothId === 'string' &&
+          typeof i?.boothNo === 'string' &&
+          typeof i?.boothName === 'string' &&
+          typeof i?.menuName === 'string' &&
+          typeof i?.price === 'number' &&
+          typeof i?.quantity === 'number' &&
+          i.quantity > 0,
+      )
+      // 구버전 localStorage 호환: menuType 없으면 'cook' 으로 기본값 채움
+      .map((i): CartItem => ({
+        ...i,
+        menuType: i.menuType === 'instant' ? 'instant' : 'cook',
+      }))
   } catch {
     return []
   }

@@ -76,6 +76,14 @@ export async function createPendingPayment(
     const first = boothItems[0]
     const subtotal = boothItems.reduce((sum, it) => sum + it.price * it.quantity, 0)
 
+    // order_type 판별: items 전체가 instant 일 때만 'instant'.
+    // cook 메뉴가 하나라도 섞여 있으면 전체 order 는 'cook' 으로 처리 (혼합 주문 규칙).
+    const orderType: 'instant' | 'cook' = boothItems.every(
+      (it) => it.menuType === 'instant',
+    )
+      ? 'instant'
+      : 'cook'
+
     const { data: order, error: oErr } = await supabase
       .from('orders')
       .insert({
@@ -86,6 +94,7 @@ export async function createPendingPayment(
         subtotal,
         phone: input.phone,
         status: 'pending',
+        order_type: orderType,
         festival_id: input.festivalId ?? null,
       })
       .select()
@@ -141,11 +150,29 @@ export async function markPaymentPaid(
   // 2) 하위 orders → paid
   //    paid_at 도 같이 채워야 부스/어드민 elapsed 가 결제 직후 시점부터 측정됨
   //    (orders.created_at 은 결제하기 클릭 시점이라 토스 흐름 시간이 포함됨)
-  const { error: oErr } = await supabase
-    .from('orders')
-    .update({ status: 'paid', paid_at: now })
-    .eq('payment_id', paymentId)
-  if (oErr) throw new Error(`주문 상태 업데이트 실패: ${oErr.message}`)
+  //
+  //    order_type='cook' 은 기존대로 'paid' 로만 전이.
+  //    order_type='instant' 는 조리 과정이 없으므로 이 시점에 바로 'completed'
+  //    로 확정하고 confirmed_at/ready_at 도 paid_at 과 동일 시각으로 채운다.
+  const [cookUpd, instantUpd] = await Promise.all([
+    supabase
+      .from('orders')
+      .update({ status: 'paid', paid_at: now })
+      .eq('payment_id', paymentId)
+      .eq('order_type', 'cook'),
+    supabase
+      .from('orders')
+      .update({
+        status: 'completed',
+        paid_at: now,
+        confirmed_at: now,
+        ready_at: now,
+      })
+      .eq('payment_id', paymentId)
+      .eq('order_type', 'instant'),
+  ])
+  if (cookUpd.error) throw new Error(`주문 상태 업데이트 실패(cook): ${cookUpd.error.message}`)
+  if (instantUpd.error) throw new Error(`주문 상태 업데이트 실패(instant): ${instantUpd.error.message}`)
 
   // 3) 쿠폰이 연결돼 있으면 원자 전이
   if (payment.coupon_id) {

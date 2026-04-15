@@ -1,0 +1,108 @@
+.page {
+  padding: 24px;
+  background-color: #F3F4F6;
+  min-height: 100vh;
+}
+
+.toolbar {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.baseLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  max-width: 480px;
+}
+
+.baseInput {
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #6B7280;
+  line-height: 1.6;
+}
+
+.hint code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  background-color: #F3F4F6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.muted {
+  color: #6B7280;
+  font-size: 14px;
+}
+
+.error {
+  color: #DC2626;
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.qrCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+}
+
+.qrBoothName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+}
+
+.qrBoothNo {
+  font-size: 13px;
+  color: #6B7280;
+  font-weight: 600;
+}
+
+.qrBox {
+  padding: 12px;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+
+.qrUrl {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  color: #6B7280;
+  text-align: center;
+  word-break: break-all;
+  max-width: 240px;
+}

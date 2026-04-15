@@ -200,6 +200,22 @@
   border-left-color: #9CA3AF;
 }
 
+.card_instant {
+  border-left-color: #10B981;
+}
+
+.instantBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background-color: #10B981;
+  color: #FFFFFF;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .cardAlert {
   border-color: #DC2626;
   border-left-color: #DC2626;

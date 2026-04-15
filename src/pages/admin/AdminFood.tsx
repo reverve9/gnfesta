@@ -31,6 +31,7 @@ type MenuForm = {
   price: string
   description: string
   sort_order: number
+  menu_type: 'instant' | 'cook'
 }
 
 const emptyMenuForm: MenuForm = {
@@ -38,6 +39,7 @@ const emptyMenuForm: MenuForm = {
   price: '',
   description: '',
   sort_order: 0,
+  menu_type: 'cook',
 }
 
 function boothToForm(b: FoodBoothWithMenus): BoothForm {
@@ -55,6 +57,7 @@ function menuToForm(m: FoodMenu): MenuForm {
     price: m.price != null ? String(m.price) : '',
     description: m.description ?? '',
     sort_order: m.sort_order,
+    menu_type: m.menu_type,
   }
 }
 
@@ -391,6 +394,7 @@ export default function AdminFood() {
         price: Number.isFinite(priceNum) ? priceNum : null,
         description: form.description || null,
         sort_order: form.sort_order,
+        menu_type: form.menu_type,
       })
       .eq('id', menuId)
     setSavingMenuId(null)
@@ -925,6 +929,33 @@ export default function AdminFood() {
                                 }
                                 placeholder="가격(원)"
                               />
+                            </div>
+                            <div className={styles.menuTypeRow}>
+                              <span className={styles.menuTypeLabel}>판매 방식</span>
+                              <label className={styles.menuTypeOption}>
+                                <input
+                                  type="radio"
+                                  name={`menu_type_${m.id}`}
+                                  value="cook"
+                                  checked={mForm.menu_type === 'cook'}
+                                  onChange={() =>
+                                    updateMenuField(m.id, 'menu_type', 'cook')
+                                  }
+                                />
+                                조리필요
+                              </label>
+                              <label className={styles.menuTypeOption}>
+                                <input
+                                  type="radio"
+                                  name={`menu_type_${m.id}`}
+                                  value="instant"
+                                  checked={mForm.menu_type === 'instant'}
+                                  onChange={() =>
+                                    updateMenuField(m.id, 'menu_type', 'instant')
+                                  }
+                                />
+                                즉석판매
+                              </label>
                             </div>
                             <input
                               className={styles.input}

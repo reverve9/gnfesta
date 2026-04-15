@@ -66,6 +66,7 @@ export interface FoodMenu {
   is_sold_out: boolean
   sort_order: number
   is_active: boolean
+  menu_type: 'instant' | 'cook'
   created_at: string
   updated_at: string
 }

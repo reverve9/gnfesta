@@ -38,6 +38,7 @@ interface BoothOrderCard {
   status: CardStatus
   estimatedMinutes: number | null
   confirmedAt: string | null
+  orderType: 'instant' | 'cook'
 }
 
 const HIGHLIGHT_MS = 5_000
@@ -67,6 +68,7 @@ function buildCards(data: BoothOrderCardData[]): BoothOrderCard[] {
     status: getBoothOrderCardStatus(order),
     estimatedMinutes: order.estimated_minutes,
     confirmedAt: order.confirmed_at,
+    orderType: order.order_type,
   }))
 }
 
@@ -261,9 +263,14 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
 
   const cards = useMemo(() => buildCards(data), [data])
 
-  // 좌측: 대기 + 진행중 (= !completed). highlight 카드 먼저, 그 다음 오래된 순.
+  // 좌측: 대기 + 진행중 + instant 주문.
+  //  - cook 주문은 status!=='completed' 만 (완료되면 우측 패널로 이동)
+  //  - instant 주문은 이미 status='completed' 이지만 거절 버튼 유지를 위해 좌측에 남김
+  // highlight 카드 먼저, 그 다음 오래된 순.
   const waitingCards = useMemo(() => {
-    const list = cards.filter((c) => c.status !== 'completed')
+    const list = cards.filter((c) =>
+      c.orderType === 'instant' ? true : c.status !== 'completed',
+    )
     list.sort((a, b) => {
       const aHi = highlightOrderIds.has(a.orderId) ? 0 : 1
       const bHi = highlightOrderIds.has(b.orderId) ? 0 : 1
@@ -273,10 +280,10 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
     return list
   }, [cards, highlightOrderIds])
 
-  // 우측 상단: 완료 — 최근 20건
+  // 우측 상단: 완료 — 최근 20건 (cook 만; instant 는 좌측에 계속 노출)
   const completedCards = useMemo(() => {
     return cards
-      .filter((c) => c.status === 'completed')
+      .filter((c) => c.status === 'completed' && c.orderType === 'cook')
       .sort((a, b) => b.orderPaidAt.localeCompare(a.orderPaidAt))
       .slice(0, COMPLETED_LIMIT)
   }, [cards])
@@ -404,48 +411,55 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
           ) : (
             <div className={styles.cardList}>
               {waitingCards.map((card) => {
+                const isInstant = card.orderType === 'instant'
                 const elapsedSec = Math.max(
                   0,
                   Math.floor((now - new Date(card.orderPaidAt).getTime()) / 1000),
                 )
-                // 초과 alert 는 미확인 (waiting) 상태일 때만 의미 있음.
-                // 확인 후에는 elapsed 가 1분 넘어도 빨강/펄스 풀어줌.
-                const overAlert = card.status === 'waiting' && elapsedSec >= ALERT_SECONDS
+                // 초과 alert 는 미확인 (waiting) cook 주문일 때만 의미 있음.
+                const overAlert =
+                  !isInstant && card.status === 'waiting' && elapsedSec >= ALERT_SECONDS
                 const highlighted = highlightOrderIds.has(card.orderId)
                 const busy = busyOrderId === card.orderId
                 return (
                   <article
                     key={card.orderId}
-                    className={`${styles.card} ${styles[`card_${card.status}`]} ${
-                      overAlert ? styles.cardAlert : ''
-                    } ${highlighted ? styles.cardHighlight : ''}`}
+                    className={`${styles.card} ${
+                      isInstant ? styles.card_instant : styles[`card_${card.status}`]
+                    } ${overAlert ? styles.cardAlert : ''} ${
+                      highlighted ? styles.cardHighlight : ''
+                    }`}
                   >
                     <div className={styles.cardHeader}>
                       <div className={styles.cardHeaderMain}>
                         <span className={styles.cardOrderNo}>{card.orderNumber}</span>
-                        <span
-                          className={`${styles.cardElapsed} ${
-                            overAlert ? styles.cardElapsedAlert : ''
-                          } ${
-                            card.status === 'inProgress' && card.confirmedAt && card.estimatedMinutes
+                        {isInstant ? (
+                          <span className={styles.instantBadge}>바로픽업</span>
+                        ) : (
+                          <span
+                            className={`${styles.cardElapsed} ${
+                              overAlert ? styles.cardElapsedAlert : ''
+                            } ${
+                              card.status === 'inProgress' && card.confirmedAt && card.estimatedMinutes
+                                ? (() => {
+                                    const confirmedMs = new Date(card.confirmedAt).getTime()
+                                    const remainSec = Math.floor((confirmedMs + card.estimatedMinutes * 60 * 1000 - now) / 1000)
+                                    return remainSec <= 0 ? styles.cardElapsedAlert : ''
+                                  })()
+                                : ''
+                            }`}
+                          >
+                            {card.status === 'inProgress' && card.confirmedAt && card.estimatedMinutes
                               ? (() => {
                                   const confirmedMs = new Date(card.confirmedAt).getTime()
                                   const remainSec = Math.floor((confirmedMs + card.estimatedMinutes * 60 * 1000 - now) / 1000)
-                                  return remainSec <= 0 ? styles.cardElapsedAlert : ''
+                                  const cd = formatCountdown(remainSec)
+                                  return cd.text
                                 })()
-                              : ''
-                          }`}
-                        >
-                          {card.status === 'inProgress' && card.confirmedAt && card.estimatedMinutes
-                            ? (() => {
-                                const confirmedMs = new Date(card.confirmedAt).getTime()
-                                const remainSec = Math.floor((confirmedMs + card.estimatedMinutes * 60 * 1000 - now) / 1000)
-                                const cd = formatCountdown(remainSec)
-                                return cd.text
-                              })()
-                            : formatElapsed(elapsedSec)
-                          }
-                        </span>
+                              : formatElapsed(elapsedSec)
+                            }
+                          </span>
+                        )}
                       </div>
                       <div className={styles.cardPhone}>{formatPhoneDisplay(card.phone)}</div>
                     </div>
@@ -477,16 +491,18 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
                         >
                           {busy ? '...' : '거절'}
                         </button>
-                        <button
-                          type="button"
-                          className={`${styles.actionBtn} ${styles.actionReady}`}
-                          onClick={() => handleReady(card)}
-                          disabled={busy}
-                        >
-                          {busy ? '처리 중...' : '조리완료'}
-                        </button>
+                        {!isInstant && (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionReady}`}
+                            onClick={() => handleReady(card)}
+                            disabled={busy}
+                          >
+                            {busy ? '처리 중...' : '조리완료'}
+                          </button>
+                        )}
                       </div>
-                      {card.status === 'waiting' && (
+                      {!isInstant && card.status === 'waiting' && (
                         <div className={styles.timeOverlay}>
                           <button
                             type="button"
