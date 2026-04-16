@@ -3,7 +3,7 @@ import { Check, Stamp } from 'lucide-react'
 import PageTitle from '@/components/layout/PageTitle'
 import Input from '@/components/ui/Input'
 import { fetchMyStamps, STAMPS_REQUIRED, type StampEntry } from '@/lib/stamps'
-import { loadLastPhone, saveLastPhone, normalizePhone, isValidPhone } from '@/lib/phone'
+import { loadLastPhone, saveLastPhone, normalizePhone } from '@/lib/phone'
 import styles from './StampRallyPage.module.css'
 
 export default function StampRallyPage() {
@@ -14,7 +14,7 @@ export default function StampRallyPage() {
 
   const load = useCallback(async (p: string) => {
     const normalized = normalizePhone(p)
-    if (!isValidPhone(normalized)) return
+    if (normalized.length !== 11) return
     setLoading(true)
     try {
       const data = await fetchMyStamps(normalized)
@@ -111,7 +111,7 @@ export default function StampRallyPage() {
         <button
           type="submit"
           className={styles.searchBtn}
-          disabled={loading || !isValidPhone(normalizePhone(phone))}
+          disabled={loading || normalizePhone(phone).length !== 11}
         >
           {loading ? '조회 중...' : '조회'}
         </button>
