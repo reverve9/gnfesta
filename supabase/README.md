@@ -12,6 +12,7 @@
    - `0005_menu_type.sql` — 메뉴/주문 타입 분기 (instant / cook)
    - `0006_coupon_sources.sql` — 쿠폰 소스 확장 (payment/program) + client_id + 회수 지원
    - `0007_event_coupon_config.sql` — festival_events 쿠폰 설정(enabled/discount/시간창)
+   - `0008_toss_order_id_timestamp.sql` — generate_toss_order_id() 타임스탬프 조합으로 교체 (orderId 충돌 방지)
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행
