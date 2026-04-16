@@ -22,6 +22,19 @@
   margin-bottom: 16px;
 }
 
+.introText {
+  font-size: var(--text-form-input);
+  color: #111827;
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+
+.introTextSub {
+  font-size: var(--text-form-caption);
+  color: #6B7280;
+  line-height: 1.6;
+}
+
 .cardSubtitle {
   font-size: var(--text-form-caption);
   color: #6B7280;

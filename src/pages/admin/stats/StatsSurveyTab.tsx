@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   SURVEY_ITEMS,
   SURVEY_LABELS,
-  SURVEY_OPERATIONS_ITEMS,
   calcSurveyStats,
   fetchSurveys,
   type CountBucket,
@@ -30,7 +29,6 @@ function fmtCount(n: number): string {
 }
 
 function formatDateTime(iso: string): string {
-  // AdminOrders 와 동일: mm/dd hh:mm (KST)
   const d = new Date(iso)
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Seoul',
@@ -76,26 +74,20 @@ export default function StatsSurveyTab() {
       { key: 'created_at', label: '제출일시' },
       { key: 'name', label: '이름' },
       { key: 'gender', label: '성별' },
-      { key: 'age', label: '연령' },
+      { key: 'ageGroup', label: '연령대' },
       { key: 'region', label: '거주지역' },
+      { key: 'companion', label: '동반유형' },
       { key: 'phone', label: '전화' },
-      { key: 'q1', label: '종교' },
-      { key: 'q2', label: '1년전종교' },
-      { key: 'q3', label: '개인영향' },
-      { key: 'q3_1', label: '사회영향' },
-      { key: 'q4', label: '과거참여' },
-      { key: 'q5', label: '결정자' },
-      { key: 'q6', label: '정보출처' },
-      { key: 'q7', label: '기대부분' },
-      { key: 'q11', label: '종합만족도' },
-      { key: 'q11_1', label: '불만족이유' },
-      { key: 'q11_2', label: '만족이유' },
-      { key: 'q12', label: '소요시간' },
-      { key: 'q13', label: '일정적절' },
-      { key: 'q14', label: '교통접근' },
-      { key: 'q15', label: '주차편의' },
-      { key: 'q16', label: '동선안내' },
-      { key: 'q20', label: '개선의견' },
+      { key: 'q5', label: '과거참여' },
+      { key: 'q6', label: '결정자' },
+      { key: 'q7', label: '정보출처' },
+      { key: 'q8', label: '기대부분' },
+      { key: 'q13', label: '종합만족도' },
+      { key: 'q13_1', label: '불만족이유' },
+      { key: 'q13_2', label: '만족이유' },
+      { key: 'q14', label: '운영시간' },
+      { key: 'q17', label: '향후프로그램' },
+      { key: 'q18', label: '자유의견' },
     ]
     const data = rows.map((r) => {
       const a = (r.answers ?? {}) as Record<string, unknown>
@@ -103,26 +95,20 @@ export default function StatsSurveyTab() {
         created_at: fmtDateKst(r.created_at),
         name: r.name,
         gender: SURVEY_LABELS.gender[r.gender] ?? r.gender,
-        age: r.age,
+        ageGroup: SURVEY_LABELS.ageGroup[a.ageGroup as string] ?? a.ageGroup ?? '',
         region: SURVEY_LABELS.region[r.region] ?? r.region,
+        companion: SURVEY_LABELS.companion[a.companion as string] ?? a.companion ?? '',
         phone: formatPhoneDisplay(r.phone),
-        q1: SURVEY_LABELS.religion[a.q1 as string] ?? a.q1 ?? '',
-        q2: SURVEY_LABELS.religion[a.q2 as string] ?? a.q2 ?? '',
-        q3: SURVEY_LABELS.influence[a.q3 as string] ?? a.q3 ?? '',
-        q3_1: SURVEY_LABELS.influence[a.q3_1 as string] ?? a.q3_1 ?? '',
-        q4: SURVEY_LABELS.yesNo[a.q4 as string] ?? a.q4 ?? '',
-        q5: SURVEY_LABELS.decisionMaker[a.q5 as string] ?? a.q5 ?? '',
-        q6: Array.isArray(a.q6) ? (a.q6 as string[]).map((v) => SURVEY_LABELS.infoSource[v] ?? v).join(', ') : '',
-        q7: SURVEY_LABELS.expectation[a.q7 as string] ?? a.q7 ?? '',
-        q11: a.q11 ?? '',
-        q11_1: a.q11_1 ?? '',
-        q11_2: a.q11_2 ?? '',
-        q12: a.q12 ?? '',
+        q5: SURVEY_LABELS.yesNo[a.q5 as string] ?? a.q5 ?? '',
+        q6: SURVEY_LABELS.decisionMaker[a.q6 as string] ?? a.q6 ?? '',
+        q7: Array.isArray(a.q7) ? (a.q7 as string[]).map((v) => SURVEY_LABELS.infoSource[v] ?? v).join(', ') : '',
+        q8: SURVEY_LABELS.expectation[a.q8 as string] ?? a.q8 ?? '',
         q13: a.q13 ?? '',
-        q14: a.q14 ?? '',
-        q15: a.q15 ?? '',
-        q16: a.q16 ?? '',
-        q20: a.q20 ?? '',
+        q13_1: a.q13_1 ?? '',
+        q13_2: a.q13_2 ?? '',
+        q14: SURVEY_LABELS.appropriate5[a.q14 as string] ?? a.q14 ?? '',
+        q17: Array.isArray(a.q17) ? (a.q17 as string[]).map((v) => SURVEY_LABELS.futureProgram[v] ?? v).join(', ') : '',
+        q18: a.q18 ?? '',
       }
     })
     await exportToExcel(data, cols, '만족도조사')
@@ -135,7 +121,6 @@ export default function StatsSurveyTab() {
 
   return (
     <div className={styles.tab}>
-      {/* 헤더 — 날짜 필터 없이 누적 집계. 새로고침만 */}
       <div className={styles.headerBar}>
         <div className={styles.headerLabel}>
           누적 응답 집계 · 총 <strong>{stats.total.toLocaleString()}</strong>명
@@ -161,89 +146,61 @@ export default function StatsSurveyTab() {
         <div className={styles.placeholder}>조회된 응답이 없습니다.</div>
       ) : (
         <>
-          {/* 1. 요약 KPI */}
+          {/* 1. KPI */}
           <KpiSection stats={stats} />
 
-          {/* 2. 응답자 정보 (성별/연령/지역 + Q1~Q2 종교) */}
+          {/* 2. 응답자 정보 */}
           <DemographicsSection stats={stats} />
 
-          {/* 3. 종교 영향력 (Q3, Q3-1) */}
+          {/* 3. 참여 동기 */}
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>3. 종교 영향력</h2>
+            <h2 className={styles.sectionTitle}>5~8. 참여 행태</h2>
             <div className={styles.demoGrid}>
-              <BucketTable
-                title="문3. 개인 삶에 미치는 영향"
-                buckets={stats.religionInfluencePersonal}
-              />
-              <BucketTable
-                title="문3-1. 한국 사회에 미치는 영향"
-                buckets={stats.religionInfluenceSociety}
-              />
+              <BucketTable title="문5. 과거 참여 경험" buckets={stats.pastParticipation} />
+              <BucketTable title="문6. 참여 결정자" buckets={stats.decisionMaker} />
+              <BucketTable title="문8. 기대한 부분" buckets={stats.expectation} scrollable />
             </div>
           </section>
 
-          {/* 4. 참여 동기 (Q4, Q5, Q7) */}
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>4~7. 참여 동기</h2>
-            <div className={styles.demoGrid}>
-              <BucketTable
-                title="문4. 과거 참여 경험"
-                buckets={stats.pastParticipation}
-              />
-              <BucketTable
-                title="문5. 참여 결정자"
-                buckets={stats.decisionMaker}
-              />
-              <BucketTable
-                title="문7. 기대한 부분"
-                buckets={stats.expectation}
-                scrollable
-              />
-            </div>
-          </section>
+          {/* 4. 정보 출처 */}
+          <SingleBucketSection title="7. 정보 출처 (복수선택)" buckets={stats.infoSources} />
 
-          {/* 5. 문6 정보 출처 (복수선택) */}
-          <SingleBucketSection
-            title="6. 정보 출처 (복수선택)"
-            buckets={stats.infoSources}
-          />
-
-          {/* 4. 문8~10 리커트 (이미지/내용/주관기관) */}
+          {/* 5. 행사 평가 (Q9~Q12) */}
           <LikertGridSection
-            title="8~10. 행사 평가 (100점 환산)"
+            title="9~12. 행사 평가 (100점 환산)"
             sections={stats.sections.filter((s) =>
-              ['q8', 'q9', 'q10'].includes(s.key),
+              ['q9', 'q10', 'q11', 'q12'].includes(s.key),
             )}
           />
 
-          {/* 5. 문11 종합 만족도 + 주관식 */}
-          <Q11Section stats={stats} />
+          {/* 6. 종합 만족도 */}
+          <Q13Section stats={stats} />
 
-          {/* 6. 문12~16 행사 운영 */}
-          <OperationsSection stats={stats} />
+          {/* 7. 운영시간 */}
+          <SingleBucketSection title="14. 운영 시간 적절성" buckets={stats.operatingHours} />
 
-          {/* 7. 문17~18 의향/성과 */}
+          {/* 8. 의향/성과 (Q15~Q16) */}
           <LikertGridSection
-            title="17~18. 의향 및 성과 (100점 환산)"
+            title="15~16. 재방문 의향 및 행사 성과 (100점 환산)"
             sections={stats.sections.filter((s) =>
-              ['q17', 'q18'].includes(s.key),
+              ['q15', 'q16'].includes(s.key),
             )}
           />
 
-          {/* 8-9. 문19 희망 프로그램 (복수선택) + 문20 개선 의견 (2열) */}
+          {/* 9-10. 향후 프로그램 + 자유의견 */}
           <div className={styles.dualSectionGrid}>
             <SingleBucketSection
-              title="19. 향후 희망 프로그램 (복수선택)"
+              title="17. 향후 희망 프로그램 (복수선택)"
               buckets={stats.futurePrograms}
             />
             <SingleCommentSection
-              title="20. 개선 의견"
-              items={stats.openComments.q20}
-              total={stats.openComments.q20.length}
+              title="18. 자유 의견"
+              items={stats.openComments.q18}
+              total={stats.openComments.q18.length}
             />
           </div>
 
-          {/* 10. 원본 응답 테이블 */}
+          {/* 11. 원본 응답 테이블 */}
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>원본 응답 목록</h2>
             <Pagination
@@ -262,9 +219,9 @@ export default function StatsSurveyTab() {
                     <th>제출일시</th>
                     <th>이름</th>
                     <th>성별</th>
-                    <th className={styles.alignCenter}>연령</th>
+                    <th>연령대</th>
                     <th>거주지역</th>
-                    <th>종교</th>
+                    <th>동반유형</th>
                     <th className={styles.alignCenter}>종합만족</th>
                     <th>전화</th>
                   </tr>
@@ -273,33 +230,21 @@ export default function StatsSurveyTab() {
                   {pageRows.map((r, idx) => {
                     const displayNo = rows.length - (pageStart + idx)
                     const answers = (r.answers ?? {}) as Record<string, unknown>
-                    const q1 = typeof answers.q1 === 'string' ? answers.q1 : ''
-                    const q11 =
-                      typeof answers.q11 === 'number'
-                        ? answers.q11
-                        : Number(answers.q11) || null
+                    const q13 = typeof answers.q13 === 'number' ? answers.q13 : Number(answers.q13) || null
                     return (
                       <tr
                         key={r.id}
                         className={styles.row}
                         onClick={() => setSelectedSurvey(r)}
                       >
-                        <td className={`${styles.alignCenter} ${styles.mono}`}>
-                          {displayNo}
-                        </td>
-                        <td className={styles.mono}>
-                          {formatDateTime(r.created_at)}
-                        </td>
+                        <td className={`${styles.alignCenter} ${styles.mono}`}>{displayNo}</td>
+                        <td className={styles.mono}>{formatDateTime(r.created_at)}</td>
                         <td>{r.name}</td>
                         <td>{SURVEY_LABELS.gender[r.gender] ?? r.gender}</td>
-                        <td className={`${styles.alignCenter} ${styles.mono}`}>
-                          {r.age}
-                        </td>
+                        <td>{SURVEY_LABELS.ageGroup[answers.ageGroup as string] ?? '—'}</td>
                         <td>{SURVEY_LABELS.region[r.region] ?? r.region}</td>
-                        <td>{SURVEY_LABELS.religion[q1] ?? '—'}</td>
-                        <td className={`${styles.alignCenter} ${styles.mono}`}>
-                          {q11 ?? '—'}
-                        </td>
+                        <td>{SURVEY_LABELS.companion[answers.companion as string] ?? '—'}</td>
+                        <td className={`${styles.alignCenter} ${styles.mono}`}>{q13 ?? '—'}</td>
                         <td className={styles.mono}>{formatPhoneDisplay(r.phone)}</td>
                       </tr>
                     )
@@ -321,9 +266,7 @@ export default function StatsSurveyTab() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// KPI (총 응답 · 전반만족 · 종합만족 · 평균연령 · 최다지역)
-// ─────────────────────────────────────────────────────────────────
+// ─── KPI ──────────────────────────────────────────────────────
 
 function KpiSection({ stats }: { stats: SurveyStats }) {
   return (
@@ -332,10 +275,6 @@ function KpiSection({ stats }: { stats: SurveyStats }) {
       <div className={styles.kpiGrid}>
         <Kpi label="총 응답 수" value={fmtCount(stats.total)} emphasis />
         <Kpi
-          label="평균 연령"
-          value={stats.avgAge !== null ? `${stats.avgAge.toFixed(1)}세` : '—'}
-        />
-        <Kpi
           label="최다 거주지역"
           value={
             stats.topRegion
@@ -343,10 +282,11 @@ function KpiSection({ stats }: { stats: SurveyStats }) {
               : '—'
           }
         />
-        <Kpi label="전반 만족도" value={fmtPct(stats.overallSatisfactionTopBox)} />
+        <Kpi label="전반 만족도 (4~5점 비율)" value={fmtPct(stats.overallSatisfactionTopBox)} />
         <Kpi
-          label="종합 만족도"
+          label="종합 만족도 (100점 환산)"
           value={fmtPct(stats.overallSatisfactionAvg100, '점')}
+          emphasis
         />
       </div>
     </section>
@@ -370,9 +310,7 @@ function Kpi({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 응답자 정보 (Demographics)
-// ─────────────────────────────────────────────────────────────────
+// ─── Demographics ─────────────────────────────────────────────
 
 function DemographicsSection({ stats }: { stats: SurveyStats }) {
   return (
@@ -380,23 +318,9 @@ function DemographicsSection({ stats }: { stats: SurveyStats }) {
       <h2 className={styles.sectionTitle}>응답자 정보</h2>
       <div className={styles.demoGrid}>
         <BucketTable title="성별" buckets={stats.gender} />
-        <BucketTable title="연령" buckets={stats.ageBuckets} />
-        <BucketTable title="거주지역" buckets={stats.regions} scrollable />
-        <BucketTable title="종교 (문1)" buckets={stats.religion} />
-        <BucketTable
-          title="종교 시점 (문1-1)"
-          buckets={stats.religionSince}
-          scrollable
-        />
-        <BucketTable
-          title="종교활동 빈도 (문1-2)"
-          buckets={stats.religionFrequency}
-          scrollable
-        />
-        <BucketTable
-          title="1년 전 종교 (문2)"
-          buckets={stats.pastReligion}
-        />
+        <BucketTable title="연령대" buckets={stats.ageBuckets} />
+        <BucketTable title="거주지역" buckets={stats.regions} />
+        <BucketTable title="동반 유형" buckets={stats.companion} scrollable />
       </div>
     </section>
   )
@@ -436,9 +360,7 @@ function BucketTable({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 리커트 카드 그리드 (재사용) — 섹션 서브셋 받아서 렌더
-// ─────────────────────────────────────────────────────────────────
+// ─── Likert Grid ──────────────────────────────────────────────
 
 function LikertGridSection({
   title,
@@ -460,10 +382,6 @@ function LikertGridSection({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 단일 버킷 섹션 (Q6, Q19 등 복수선택 단독)
-// ─────────────────────────────────────────────────────────────────
-
 function SingleBucketSection({
   title,
   buckets,
@@ -479,18 +397,16 @@ function SingleBucketSection({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 문11 종합 만족도 + 주관식 이유
-// ─────────────────────────────────────────────────────────────────
+// ─── Q13 종합 만족도 ─────────────────────────────────────────
 
-function Q11Section({ stats }: { stats: SurveyStats }) {
+function Q13Section({ stats }: { stats: SurveyStats }) {
   const MAX = 10
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>11. 종합 만족도</h2>
+      <h2 className={styles.sectionTitle}>13. 종합 만족도</h2>
       <div className={styles.kpiGridDual}>
         <Kpi
-          label="전반 만족도 (5~7점 비율)"
+          label="전반 만족도 (4~5점 비율)"
           value={fmtPct(stats.overallSatisfactionTopBox)}
         />
         <Kpi
@@ -501,14 +417,14 @@ function Q11Section({ stats }: { stats: SurveyStats }) {
       </div>
       <div className={styles.openGridDual}>
         <OpenBlock
-          title="11-2. 만족 이유"
-          items={stats.openComments.q11_2.slice(0, MAX)}
-          total={stats.openComments.q11_2.length}
+          title="13-2. 만족 이유"
+          items={stats.openComments.q13_2.slice(0, MAX)}
+          total={stats.openComments.q13_2.length}
         />
         <OpenBlock
-          title="11-1. 불만족 이유"
-          items={stats.openComments.q11_1.slice(0, MAX)}
-          total={stats.openComments.q11_1.length}
+          title="13-1. 불만족 이유"
+          items={stats.openComments.q13_1.slice(0, MAX)}
+          total={stats.openComments.q13_1.length}
         />
       </div>
     </section>
@@ -553,30 +469,7 @@ function SubItemRow({ item }: { item: LikertSubItem }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 운영 (Q12~Q16 5점)
-// ─────────────────────────────────────────────────────────────────
-
-function OperationsSection({ stats }: { stats: SurveyStats }) {
-  return (
-    <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>
-        행사 운영 평가 (문12~16, 100점 환산)
-      </h2>
-      <div className={styles.perfCard}>
-        <div className={styles.perfItems}>
-          {stats.operations.map((item) => (
-            <SubItemRow key={item.key} item={item} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────
-// 단일 주관식 섹션 (Q20 등)
-// ─────────────────────────────────────────────────────────────────
+// ─── Comment sections ─────────────────────────────────────────
 
 function SingleCommentSection({
   title,
@@ -636,9 +529,7 @@ function OpenBlock({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 상세 모달
-// ─────────────────────────────────────────────────────────────────
+// ─── 상세 모달 ────────────────────────────────────────────────
 
 interface SurveyDetailModalProps {
   survey: Survey
@@ -657,7 +548,6 @@ function SurveyDetailModal({ survey, onClose }: SurveyDetailModalProps) {
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  // 이 응답자에게 발급된 설문 쿠폰 조회 (phone 기반)
   useEffect(() => {
     let cancelled = false
     fetchSurveyCouponByPhone(survey.phone)
@@ -671,12 +561,8 @@ function SurveyDetailModal({ survey, onClose }: SurveyDetailModalProps) {
 
   const couponStatus = useMemo(() => {
     if (!surveyCoupon) return null
-    if (surveyCoupon.status === 'used') {
-      return { label: '사용완료', tone: 'used' as const }
-    }
-    if (new Date(surveyCoupon.expires_at).getTime() < Date.now()) {
-      return { label: '만료', tone: 'expired' as const }
-    }
+    if (surveyCoupon.status === 'used') return { label: '사용완료', tone: 'used' as const }
+    if (new Date(surveyCoupon.expires_at).getTime() < Date.now()) return { label: '만료', tone: 'expired' as const }
     return { label: '미사용', tone: 'active' as const }
   }, [surveyCoupon])
 
@@ -753,139 +639,92 @@ function SurveyDetailModal({ survey, onClose }: SurveyDetailModalProps) {
         </div>
 
         <div className={styles.modalBody}>
-          {/* 기본 정보 */}
+          {/* 응답자 정보 */}
           <DetailSection title="응답자 정보">
             <DetailRow label="성별" value={SURVEY_LABELS.gender[survey.gender] ?? survey.gender} />
-            <DetailRow label="연령" value={`${survey.age}세`} />
-            <DetailRow
-              label="거주지역"
-              value={SURVEY_LABELS.region[survey.region] ?? survey.region}
-            />
+            <DetailRow label="연령대" value={strAnswer('ageGroup', SURVEY_LABELS.ageGroup)} />
+            <DetailRow label="거주지역" value={SURVEY_LABELS.region[survey.region] ?? survey.region} />
+            <DetailRow label="동반유형" value={strAnswer('companion', SURVEY_LABELS.companion)} />
             <DetailRow label="전화" value={formatPhoneDisplay(survey.phone)} />
-            <DetailRow
-              label="개인정보 동의"
-              value={survey.privacy_consented ? '동의' : '미동의'}
-            />
+            <DetailRow label="개인정보 동의" value={survey.privacy_consented ? '동의' : '미동의'} />
           </DetailSection>
 
-          {/* Q1 */}
-          <DetailSection title="1. 종교">
-            <DetailRow label="문1. 종교" value={strAnswer('q1', SURVEY_LABELS.religion)} />
-            <DetailRow
-              label="문1-1. 언제부터"
-              value={strAnswer('q1_1', SURVEY_LABELS.religionSince)}
-            />
-            <DetailRow
-              label="문1-2. 참여 빈도"
-              value={strAnswer('q1_2', SURVEY_LABELS.religionFrequency)}
-            />
-          </DetailSection>
-
-          {/* Q2, Q3 */}
-          <DetailSection title="2~3. 종교 영향">
-            <DetailRow
-              label="문2. 종교가 생활에 영향"
-              value={strAnswer('q2', SURVEY_LABELS.influence)}
-            />
-            <DetailRow
-              label="문3. 문화행사 관심에 영향"
-              value={strAnswer('q3', SURVEY_LABELS.influence)}
-            />
-            {typeof a.q3_1 === 'string' && a.q3_1 && (
-              <DetailRow label="문3-1. 기타" value={a.q3_1} />
-            )}
-          </DetailSection>
-
-          {/* Q4~Q7 */}
-          <DetailSection title="4~7. 참여 경험">
-            <DetailRow
-              label="문4. 행사 참여 경험"
-              value={strAnswer('q4', SURVEY_LABELS.yesNo)}
-            />
-            <DetailRow
-              label="문5. 참여 결정자"
-              value={strAnswer('q5', SURVEY_LABELS.decisionMaker)}
-            />
-            <DetailRow
-              label="문6. 정보 출처"
-              value={multiAnswer('q6', SURVEY_LABELS.infoSource)}
-            />
-            <DetailRow
-              label="문7. 기대한 부분"
-              value={strAnswer('q7', SURVEY_LABELS.expectation)}
-            />
-          </DetailSection>
-
-          {/* Q8 */}
-          <DetailSection title="8. 행사 이미지 (7점 척도)">
-            {likertGroup('q8', SURVEY_ITEMS.q8).map((item) => (
-              <DetailRow key={item.label} label={item.label} value={item.value} />
-            ))}
+          {/* Q5~Q8 */}
+          <DetailSection title="5~8. 참여 행태">
+            <DetailRow label="문5. 과거 참여 경험" value={strAnswer('q5', SURVEY_LABELS.yesNo)} />
+            <DetailRow label="문6. 참여 결정자" value={strAnswer('q6', SURVEY_LABELS.decisionMaker)} />
+            <DetailRow label="문7. 정보 출처" value={multiAnswer('q7', SURVEY_LABELS.infoSource)} />
+            <DetailRow label="문8. 기대한 부분" value={strAnswer('q8', SURVEY_LABELS.expectation)} />
           </DetailSection>
 
           {/* Q9 */}
-          <DetailSection title="9. 내용 및 품질 (7점 척도)">
+          <DetailSection title="9. 행사 이미지 (7점 척도)">
             {likertGroup('q9', SURVEY_ITEMS.q9).map((item) => (
               <DetailRow key={item.label} label={item.label} value={item.value} />
             ))}
           </DetailSection>
 
           {/* Q10 */}
-          <DetailSection title="10. 주관기관 (7점 척도)">
+          <DetailSection title="10. 프로그램 평가 (7점 척도)">
             {likertGroup('q10', SURVEY_ITEMS.q10).map((item) => (
               <DetailRow key={item.label} label={item.label} value={item.value} />
             ))}
           </DetailSection>
 
           {/* Q11 */}
-          <DetailSection title="11. 종합 만족도 (7점 척도)">
-            <DetailRow label="문11. 종합 만족도" value={numAnswer('q11')} />
-            {typeof a.q11_1 === 'string' && a.q11_1 && (
-              <DetailRow label="문11-1. 불만족 이유" value={a.q11_1} multiline />
+          <DetailSection title="11. 운영 평가 (7점 척도)">
+            {likertGroup('q11', SURVEY_ITEMS.q11).map((item) => (
+              <DetailRow key={item.label} label={item.label} value={item.value} />
+            ))}
+          </DetailSection>
+
+          {/* Q12 */}
+          <DetailSection title="12. 주관기관 (7점 척도)">
+            {likertGroup('q12', SURVEY_ITEMS.q12).map((item) => (
+              <DetailRow key={item.label} label={item.label} value={item.value} />
+            ))}
+          </DetailSection>
+
+          {/* Q13 */}
+          <DetailSection title="13. 종합 만족도 (5점 척도)">
+            <DetailRow label="문13. 종합 만족도" value={numAnswer('q13')} />
+            {typeof a.q13_1 === 'string' && a.q13_1 && (
+              <DetailRow label="문13-1. 불만족 이유" value={a.q13_1} multiline />
             )}
-            {typeof a.q11_2 === 'string' && a.q11_2 && (
-              <DetailRow label="문11-2. 만족 이유" value={a.q11_2} multiline />
+            {typeof a.q13_2 === 'string' && a.q13_2 && (
+              <DetailRow label="문13-2. 만족 이유" value={a.q13_2} multiline />
             )}
           </DetailSection>
 
-          {/* Q12~Q16 */}
-          <DetailSection title="12~16. 행사 운영 (5점 척도)">
-            {SURVEY_OPERATIONS_ITEMS.map((item) => {
-              const v = a[item.key]
-              const label = item.label
-              const mapped =
-                typeof v === 'string' ? item.optionLabels[v] ?? v : v != null ? String(v) : '—'
-              return <DetailRow key={item.key} label={label} value={mapped} />
-            })}
+          {/* Q14 */}
+          <DetailSection title="14. 운영 시간">
+            <DetailRow label="문14. 운영시간 적절성" value={strAnswer('q14', SURVEY_LABELS.appropriate5)} />
+          </DetailSection>
+
+          {/* Q15 */}
+          <DetailSection title="15. 재방문/추천 의향 (7점 척도)">
+            {likertGroup('q15', SURVEY_ITEMS.q15).map((item) => (
+              <DetailRow key={item.label} label={item.label} value={item.value} />
+            ))}
+          </DetailSection>
+
+          {/* Q16 */}
+          <DetailSection title="16. 행사 성과 (7점 척도)">
+            {likertGroup('q16', SURVEY_ITEMS.q16).map((item) => (
+              <DetailRow key={item.label} label={item.label} value={item.value} />
+            ))}
           </DetailSection>
 
           {/* Q17 */}
-          <DetailSection title="17. 참여/추천 의향 (7점 척도)">
-            {likertGroup('q17', SURVEY_ITEMS.q17).map((item) => (
-              <DetailRow key={item.label} label={item.label} value={item.value} />
-            ))}
+          <DetailSection title="17. 향후 희망 프로그램">
+            <DetailRow label="문17" value={multiAnswer('q17', SURVEY_LABELS.futureProgram)} />
           </DetailSection>
 
           {/* Q18 */}
-          <DetailSection title="18. 행사 성과 (7점 척도)">
-            {likertGroup('q18', SURVEY_ITEMS.q18).map((item) => (
-              <DetailRow key={item.label} label={item.label} value={item.value} />
-            ))}
-          </DetailSection>
-
-          {/* Q19 */}
-          <DetailSection title="19. 향후 희망 프로그램">
+          <DetailSection title="18. 자유 의견">
             <DetailRow
-              label="문19"
-              value={multiAnswer('q19', SURVEY_LABELS.futureProgram)}
-            />
-          </DetailSection>
-
-          {/* Q20 */}
-          <DetailSection title="20. 개선 의견">
-            <DetailRow
-              label="문20"
-              value={typeof a.q20 === 'string' && a.q20 ? a.q20 : '—'}
+              label="문18"
+              value={typeof a.q18 === 'string' && a.q18 ? a.q18 : '—'}
               multiline
             />
           </DetailSection>

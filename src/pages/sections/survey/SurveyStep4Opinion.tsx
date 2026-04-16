@@ -1,8 +1,15 @@
+import RadioGroup from '@/components/ui/RadioGroup'
 import Checkbox from '@/components/ui/Checkbox'
 import LikertScale from '@/components/ui/LikertScale'
 import Textarea from '@/components/ui/Textarea'
 import type { SurveyFormData } from './SurveyForm'
-import { Q17_ITEMS, Q18_ITEMS, FUTURE_PROGRAM_OPTIONS } from './questions'
+import {
+  SATISFACTION_5_OPTIONS,
+  APPROPRIATE_5_OPTIONS,
+  Q15_ITEMS,
+  Q16_ITEMS,
+  FUTURE_PROGRAM_OPTIONS,
+} from './questions'
 import styles from './SurveyForm.module.css'
 
 interface Props {
@@ -22,42 +29,98 @@ export default function SurveyStep4Opinion({
   submitting,
   submitError,
 }: Props) {
-  const updateQ17 = (key: string, value: number) => {
-    updateForm({ q17: { ...form.q17, [key]: value } })
+  const updateQ15 = (key: string, value: number) => {
+    updateForm({ q15: { ...form.q15, [key]: value } })
   }
-  const updateQ18 = (key: string, value: number) => {
-    updateForm({ q18: { ...form.q18, [key]: value } })
+  const updateQ16 = (key: string, value: number) => {
+    updateForm({ q16: { ...form.q16, [key]: value } })
+  }
+  const toggleFutureProgram = (value: string) => {
+    const next = form.q17.includes(value)
+      ? form.q17.filter((v) => v !== value)
+      : [...form.q17, value]
+    updateForm({ q17: next })
   }
 
-  const toggleFutureProgram = (value: string) => {
-    const next = form.q19.includes(value)
-      ? form.q19.filter((v) => v !== value)
-      : [...form.q19, value]
-    updateForm({ q19: next })
-  }
+  const q13Value = form.q13
+  const showDissatisfied = q13Value !== null && q13Value <= 2
+  const showSatisfied = q13Value !== null && q13Value >= 4
 
   const canSubmit =
-    Q17_ITEMS.every((item) => form.q17[item.key] !== null) &&
-    Q18_ITEMS.every((item) => form.q18[item.key] !== null) &&
-    form.q19.length > 0 &&
+    form.q13 !== null &&
+    (!showDissatisfied || form.q13_1.trim() !== '') &&
+    (!showSatisfied || form.q13_2.trim() !== '') &&
+    form.q14 !== '' &&
+    Q15_ITEMS.every((item) => form.q15[item.key] !== null) &&
+    Q16_ITEMS.every((item) => form.q16[item.key] !== null) &&
+    form.q17.length > 0 &&
     !submitting
 
   return (
     <div className={styles.step}>
-      {/* ── Q17 ── */}
+      {/* Q13: 종합 만족도 */}
       <div className={styles.card}>
-        <h3 className={styles.cardTitle}>17. 행사 참여·추천 의향</h3>
+        <h3 className={styles.cardTitle}>Ⅳ. 종합 만족도</h3>
+        <div className={styles.fieldsDense}>
+          <RadioGroup
+            label="13. 지금까지의 평가를 종합적으로 고려할 때, 이번 행사에 대해 전반적으로 얼마나 만족하십니까?"
+            required
+            options={SATISFACTION_5_OPTIONS}
+            value={form.q13 !== null ? String(form.q13) : ''}
+            onChange={(value) => updateForm({ q13: Number(value) })}
+          />
+
+          {showDissatisfied && (
+            <div className={styles.subField}>
+              <Textarea
+                label="13-1. 행사에 만족하지 않으셨다면 그 이유는 무엇입니까?"
+                required
+                placeholder="의견을 자유롭게 작성해 주세요"
+                value={form.q13_1}
+                onChange={(e) => updateForm({ q13_1: e.target.value })}
+              />
+            </div>
+          )}
+
+          {showSatisfied && (
+            <div className={styles.subField}>
+              <Textarea
+                label="13-2. 행사에 만족하셨다면 가장 좋았던 점은 무엇입니까?"
+                required
+                placeholder="의견을 자유롭게 작성해 주세요"
+                value={form.q13_2}
+                onChange={(e) => updateForm({ q13_2: e.target.value })}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Q14: 운영시간 */}
+      <div className={styles.card}>
+        <RadioGroup
+          label="14. 이번 행사의 전체 운영 시간(10:00~18:00)은 적절하였습니까?"
+          required
+          options={APPROPRIATE_5_OPTIONS}
+          value={form.q14}
+          onChange={(value) => updateForm({ q14: value })}
+        />
+      </div>
+
+      {/* Q15: 재방문/추천 의향 */}
+      <div className={styles.card}>
+        <h3 className={styles.cardTitle}>Ⅴ. 재방문 의향 및 행사 성과</h3>
         <p className={styles.cardSubtitle}>
-          1점부터 7점까지이며, 동의하시는 정도가 클수록 높은 점수를 주시면 됩니다
+          15. 다음은 행사 참여 및 추천 의향에 대한 문항입니다 (1~7점)
         </p>
         <div className={styles.fieldsDense}>
-          {Q17_ITEMS.map((item) => (
+          {Q15_ITEMS.map((item) => (
             <LikertScale
               key={item.key}
               label={item.label}
               required
-              value={form.q17[item.key]}
-              onChange={(value) => updateQ17(item.key, value)}
+              value={form.q15[item.key]}
+              onChange={(value) => updateQ15(item.key, value)}
               leftLabel="전혀 그렇지 않다"
               rightLabel="매우 그렇다"
             />
@@ -65,17 +128,19 @@ export default function SurveyStep4Opinion({
         </div>
       </div>
 
-      {/* ── Q18 ── */}
+      {/* Q16: 행사 성과 */}
       <div className={styles.card}>
-        <h3 className={styles.cardTitle}>18. 행사 성과</h3>
+        <p className={styles.cardSubtitle}>
+          16. 다음은 행사의 성과에 대한 문항입니다 (1~7점)
+        </p>
         <div className={styles.fieldsDense}>
-          {Q18_ITEMS.map((item) => (
+          {Q16_ITEMS.map((item) => (
             <LikertScale
               key={item.key}
               label={item.label}
               required
-              value={form.q18[item.key]}
-              onChange={(value) => updateQ18(item.key, value)}
+              value={form.q16[item.key]}
+              onChange={(value) => updateQ16(item.key, value)}
               leftLabel="전혀 그렇지 않다"
               rightLabel="매우 그렇다"
             />
@@ -83,10 +148,10 @@ export default function SurveyStep4Opinion({
         </div>
       </div>
 
-      {/* ── Q19: 복수선택 ── */}
+      {/* Q17: 향후 프로그램 */}
       <div className={styles.card}>
         <h3 className={styles.cardTitle}>
-          19. 향후 참여를 원하시는 프로그램 유형이 있다면 선택해 주세요
+          17. 향후 참여를 원하시는 프로그램 유형을 선택해 주세요
         </h3>
         <p className={styles.cardSubtitle}>복수응답 가능</p>
         <div className={styles.fields}>
@@ -94,22 +159,22 @@ export default function SurveyStep4Opinion({
             <Checkbox
               key={opt.value}
               label={opt.label}
-              checked={form.q19.includes(opt.value)}
+              checked={form.q17.includes(opt.value)}
               onChange={() => toggleFutureProgram(opt.value)}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Q20: 개선사항 ── */}
+      {/* Q18: 자유 의견 */}
       <div className={styles.card}>
-        <h3 className={styles.cardTitle}>20. 행사에 대한 개선사항</h3>
+        <h3 className={styles.cardTitle}>Ⅵ. 자유 의견</h3>
         <Textarea
-          label="참여하신 행사에 대하여 하고 싶은 말씀이 있으면 자유롭게 말씀해 주십시오"
-          placeholder="의견을 자유롭게 작성해 주세요 (선택)"
+          label="18. 행사에 대한 개선사항이나 하고 싶으신 말씀을 자유롭게 적어주세요"
+          placeholder="행사 전반에 대한 의견, 불편사항, 건의사항 등을 자유롭게 작성해 주세요 (선택)"
           rows={5}
-          value={form.q20}
-          onChange={(e) => updateForm({ q20: e.target.value })}
+          value={form.q18}
+          onChange={(e) => updateForm({ q18: e.target.value })}
         />
       </div>
 

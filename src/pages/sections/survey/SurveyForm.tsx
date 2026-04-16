@@ -8,90 +8,74 @@ import SurveyStep4Opinion from './SurveyStep4Opinion'
 import { submitSurvey, hasSurveyDoneLocally, markSurveyDoneLocally } from '@/lib/survey'
 import { DuplicateSurveyCouponError } from '@/lib/coupons'
 import { normalizePhone } from '@/lib/phone'
+import { AGE_GROUP_REPRESENTATIVE, IMAGE_ITEMS, Q10_ITEMS, Q11_ITEMS, Q12_ITEMS, Q15_ITEMS, Q16_ITEMS } from './questions'
 import styles from './SurveyForm.module.css'
 
 const TOTAL_STEPS = 4
 
 export interface SurveyFormData {
-  // 기본 정보 (Step 1)
-  gender: '' | 'male' | 'female'
-  age: string
+  // Step 1 — 기본 정보
+  gender: '' | 'male' | 'female' | 'other'
+  ageGroup: string
   region: string
+  companion: string
   name: string
   phone: string
   privacyConsented: boolean
 
-  // Q1~Q3-1 종교 (Step 1)
-  q1: string
-  q1_1: string
-  q1_2: string
-  q2: string
-  q3: string
-  q3_1: string
-
-  // Q4~Q8 참여 경험 + 첫인상 (Step 2)
-  q4: string
+  // Step 2 — 참여 행태 (Q5~Q8)
   q5: string
-  q6: string[] // 복수선택
-  q7: string
-  q8: Record<string, number | null> // 4 하위 문항
+  q6: string
+  q7: string[]
+  q8: string
 
-  // Q9~Q16 행사/운영 평가 (Step 3)
+  // Step 3 — 프로그램 평가 (Q9~Q12)
   q9: Record<string, number | null>
   q10: Record<string, number | null>
-  q11: number | null
-  q11_1: string
-  q11_2: string
-  q12: string
-  q13: string
-  q14: string
-  q15: string
-  q16: string
+  q11: Record<string, number | null>
+  q12: Record<string, number | null>
 
-  // Q17~Q20 의향/성과/개선 (Step 4)
-  q17: Record<string, number | null>
-  q18: Record<string, number | null>
-  q19: string[] // 복수선택
-  q20: string
+  // Step 4 — 종합 + 재방문 + 의견 (Q13~Q18)
+  q13: number | null
+  q13_1: string
+  q13_2: string
+  q14: string
+  q15: Record<string, number | null>
+  q16: Record<string, number | null>
+  q17: string[]
+  q18: string
+}
+
+function initRecord(items: { key: string }[]): Record<string, number | null> {
+  const rec: Record<string, number | null> = {}
+  for (const it of items) rec[it.key] = null
+  return rec
 }
 
 const INITIAL_FORM: SurveyFormData = {
   gender: '',
-  age: '',
+  ageGroup: '',
   region: '',
+  companion: '',
   name: '',
   phone: '',
   privacyConsented: false,
-  q1: '',
-  q1_1: '',
-  q1_2: '',
-  q2: '',
-  q3: '',
-  q3_1: '',
-  q4: '',
   q5: '',
-  q6: [],
-  q7: '',
-  q8: {
-    ordinary_attractive: null,
-    unpleasant_pleasant: null,
-    uncomfortable_comfortable: null,
-    boring_interesting: null,
-  },
-  q9: { '1': null, '2': null, '3': null },
-  q10: { '1': null, '2': null, '3': null },
-  q11: null,
-  q11_1: '',
-  q11_2: '',
-  q12: '',
-  q13: '',
+  q6: '',
+  q7: [],
+  q8: '',
+  q9: initRecord(IMAGE_ITEMS),
+  q10: initRecord(Q10_ITEMS),
+  q11: initRecord(Q11_ITEMS),
+  q12: initRecord(Q12_ITEMS),
+  q13: null,
+  q13_1: '',
+  q13_2: '',
   q14: '',
-  q15: '',
-  q16: '',
-  q17: { '1': null, '2': null, '3': null },
-  q18: { '1': null, '2': null, '3': null },
-  q19: [],
-  q20: '',
+  q15: initRecord(Q15_ITEMS),
+  q16: initRecord(Q16_ITEMS),
+  q17: [],
+  q18: '',
 }
 
 export default function SurveyForm() {
@@ -128,15 +112,9 @@ export default function SurveyForm() {
     setSubmitError(null)
 
     try {
-      // answers JSONB 구조로 정리
       const answers: Record<string, unknown> = {
-        q1: form.q1,
-        q1_1: form.q1_1 || null,
-        q1_2: form.q1_2 || null,
-        q2: form.q2,
-        q3: form.q3,
-        q3_1: form.q3_1,
-        q4: form.q4,
+        ageGroup: form.ageGroup,
+        companion: form.companion,
         q5: form.q5,
         q6: form.q6,
         q7: form.q7,
@@ -144,23 +122,21 @@ export default function SurveyForm() {
         q9: form.q9,
         q10: form.q10,
         q11: form.q11,
-        q11_1: form.q11_1 || null,
-        q11_2: form.q11_2 || null,
         q12: form.q12,
         q13: form.q13,
+        q13_1: form.q13_1 || null,
+        q13_2: form.q13_2 || null,
         q14: form.q14,
         q15: form.q15,
         q16: form.q16,
         q17: form.q17,
-        q18: form.q18,
-        q19: form.q19,
-        q20: form.q20 || null,
+        q18: form.q18 || null,
       }
 
       await submitSurvey({
-        festivalId: null, // festival_id 연결은 다음 세션 (활성 festival 조회)
-        gender: form.gender as 'male' | 'female',
-        age: Number(form.age),
+        festivalId: null,
+        gender: form.gender as 'male' | 'female' | 'other',
+        age: AGE_GROUP_REPRESENTATIVE[form.ageGroup] ?? 30,
         region: form.region,
         name: form.name,
         phone: normalizePhone(form.phone),
@@ -173,7 +149,6 @@ export default function SurveyForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       if (err instanceof DuplicateSurveyCouponError) {
-        // 이미 발급받은 번호 — 설문 저장 자체 차단 (오염 방지)
         setDuplicateCoupon(true)
       } else {
         const message = err instanceof Error ? err.message : '설문 제출에 실패했습니다.'
@@ -209,7 +184,7 @@ export default function SurveyForm() {
         <div className={styles.successIcon}>&#10003;</div>
         <h3 className={styles.successTitle}>설문조사에 참여해 주셔서 감사합니다</h3>
         <p className={styles.successDesc}>
-          소중한 의견은 내년 축전 준비에 반영하겠습니다.
+          귀하의 소중한 의견은 더 나은 행사를 만드는 데 소중하게 활용됩니다.
         </p>
         <div className={styles.couponNotice}>
           <div className={styles.couponNoticeTitle}>

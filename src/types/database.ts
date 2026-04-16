@@ -345,7 +345,7 @@ export interface Database {
         Row: {
           id: string
           festival_id: string | null
-          gender: 'male' | 'female'
+          gender: 'male' | 'female' | 'other'
           age: number
           region: string
           name: string
@@ -358,7 +358,7 @@ export interface Database {
         Insert: {
           id?: string
           festival_id?: string | null
-          gender: 'male' | 'female'
+          gender: 'male' | 'female' | 'other'
           age: number
           region: string
           name: string
@@ -371,7 +371,7 @@ export interface Database {
         Update: {
           id?: string
           festival_id?: string | null
-          gender?: 'male' | 'female'
+          gender?: 'male' | 'female' | 'other'
           age?: number
           region?: string
           name?: string
