@@ -78,6 +78,7 @@ export async function fetchAvailableCouponByPhone(
     .from('coupons')
     .select()
     .eq('phone', normalizePhone(phone))
+    .in('issued_source', ['survey', 'manual'])
     .eq('status', 'active')
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })

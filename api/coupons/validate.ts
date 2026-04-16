@@ -62,6 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ valid: false, error: '존재하지 않는 쿠폰입니다' })
   }
 
+  if (coupon.issued_source !== 'survey' && coupon.issued_source !== 'manual') {
+    return res.status(400).json({ valid: false, error: '할인에 사용할 수 없는 쿠폰입니다' })
+  }
+
   if (coupon.status === 'used') {
     return res.status(409).json({ valid: false, error: '이미 사용된 쿠폰입니다' })
   }
