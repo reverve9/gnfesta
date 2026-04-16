@@ -195,14 +195,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // 5) 쿠폰 후처리 (best-effort)
-  //    (a) 이 결제 하위 모든 order 로 발급됐던 payment 쿠폰 회수
-  //    (b) 이 결제에 사용된 쿠폰 복원 (만료 전만)
-  const allOrderIds = (orders ?? []).map((o) => o.id)
-  await cancelCouponsForOrders(supabase, allOrderIds)
-  if (payment.coupon_id) {
-    await restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
-  }
+  // 5) 응답 먼저 반환 — 쿠폰 후처리는 응답 이후 best-effort
+  res.status(200).json({ ok: true, paymentId, tossResult: tossJson })
 
-  return res.status(200).json({ ok: true, paymentId, tossResult: tossJson })
+  const allOrderIds = (orders ?? []).map((o) => o.id)
+  await Promise.allSettled([
+    cancelCouponsForOrders(supabase, allOrderIds),
+    payment.coupon_id
+      ? restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
+      : Promise.resolve(),
+  ])
 }

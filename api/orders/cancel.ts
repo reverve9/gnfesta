@@ -200,15 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  // 6) 쿠폰 후처리 (best-effort — 실패해도 취소 자체는 성공 처리)
-  //    (a) 이 order 로 발급됐던 payment 쿠폰 회수
-  //    (b) 이 결제가 전액 환불 도달 + 쿠폰 사용 결제면 쿠폰 복원 (만료 전만)
-  await cancelCouponsForOrders(supabase, [orderId])
-  if (reachedFull && payment.coupon_id) {
-    await restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
-  }
-
-  return res.status(200).json({
+  // 6) 응답 먼저 반환 — 쿠폰 후처리는 응답 이후 best-effort
+  res.status(200).json({
     ok: true,
     orderId,
     paymentId: payment.id,
@@ -216,4 +209,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     paymentFullyCancelled: reachedFull,
     tossResult: tossJson,
   })
+
+  await Promise.allSettled([
+    cancelCouponsForOrders(supabase, [orderId]),
+    reachedFull && payment.coupon_id
+      ? restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
+      : Promise.resolve(),
+  ])
 }
