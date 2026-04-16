@@ -14,6 +14,7 @@ import {
   fetchTodayBoothOrders,
   getBoothOrderCardStatus,
   markBoothOrderReady,
+  markOrderPickedUp,
   subscribeBoothOrders,
 } from '@/lib/boothOrders'
 import BoothMenuModal from '@/components/booth/BoothMenuModal'
@@ -39,6 +40,7 @@ interface BoothOrderCard {
   estimatedMinutes: number | null
   confirmedAt: string | null
   orderType: 'instant' | 'cook'
+  pickedUpAt: string | null
 }
 
 const HIGHLIGHT_MS = 5_000
@@ -69,6 +71,7 @@ function buildCards(data: BoothOrderCardData[]): BoothOrderCard[] {
     estimatedMinutes: order.estimated_minutes,
     confirmedAt: order.confirmed_at,
     orderType: order.order_type,
+    pickedUpAt: order.picked_up_at,
   }))
 }
 
@@ -263,13 +266,14 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
 
   const cards = useMemo(() => buildCards(data), [data])
 
-  // 좌측: 대기 + 진행중 + instant 주문.
-  //  - cook 주문은 status!=='completed' 만 (완료되면 우측 패널로 이동)
-  //  - instant 주문은 이미 status='completed' 이지만 거절 버튼 유지를 위해 좌측에 남김
-  // highlight 카드 먼저, 그 다음 오래된 순.
+  // 좌측: 대기 + 진행중 + instant 미수령.
+  //  - cook: status!=='completed' 만
+  //  - instant: picked_up_at 없는 것만 (수령완료되면 우측으로)
   const waitingCards = useMemo(() => {
     const list = cards.filter((c) =>
-      c.orderType === 'instant' ? true : c.status !== 'completed',
+      c.orderType === 'instant'
+        ? !c.pickedUpAt
+        : c.status !== 'completed',
     )
     list.sort((a, b) => {
       const aHi = highlightOrderIds.has(a.orderId) ? 0 : 1
@@ -280,10 +284,14 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
     return list
   }, [cards, highlightOrderIds])
 
-  // 우측 상단: 완료 — 최근 20건 (cook 만; instant 는 좌측에 계속 노출)
+  // 우측 상단: 완료 — 최근 20건 (cook 완료 + instant 수령완료)
   const completedCards = useMemo(() => {
     return cards
-      .filter((c) => c.status === 'completed' && c.orderType === 'cook')
+      .filter((c) =>
+        c.orderType === 'instant'
+          ? !!c.pickedUpAt
+          : c.status === 'completed',
+      )
       .sort((a, b) => b.orderPaidAt.localeCompare(a.orderPaidAt))
       .slice(0, COMPLETED_LIMIT)
   }, [cards])
@@ -318,6 +326,28 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
         await markBoothOrderReady(card.orderId)
       } catch (e) {
         setError(e instanceof Error ? e.message : '준비완료 처리 실패')
+      } finally {
+        setBusyOrderId(null)
+      }
+    },
+    [busyOrderId],
+  )
+
+  const handlePickUp = useCallback(
+    async (card: BoothOrderCard) => {
+      if (busyOrderId) return
+      setBusyOrderId(card.orderId)
+      try {
+        await markOrderPickedUp(card.orderId)
+        setData((prev) =>
+          prev.map((d) =>
+            d.order.id === card.orderId
+              ? { ...d, order: { ...d.order, picked_up_at: new Date().toISOString() } }
+              : d,
+          ),
+        )
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '수령완료 처리 실패')
       } finally {
         setBusyOrderId(null)
       }
@@ -489,7 +519,16 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
                         >
                           {busy ? '...' : '거절'}
                         </button>
-                        {!isInstant && (
+                        {isInstant ? (
+                          <button
+                            type="button"
+                            className={`${styles.actionBtn} ${styles.actionPickup}`}
+                            onClick={() => handlePickUp(card)}
+                            disabled={busy}
+                          >
+                            {busy ? '처리 중...' : '수령완료'}
+                          </button>
+                        ) : (
                           <button
                             type="button"
                             className={`${styles.actionBtn} ${styles.actionReady}`}

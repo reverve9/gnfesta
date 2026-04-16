@@ -586,6 +586,7 @@ export interface Database {
           confirmed_at: string | null
           estimated_minutes: number | null
           ready_at: string | null
+          picked_up_at: string | null
           cancelled_at: string | null
           cancel_reason: string | null
           cancelled_by: 'booth' | 'admin' | null
@@ -609,6 +610,7 @@ export interface Database {
           confirmed_at?: string | null
           estimated_minutes?: number | null
           ready_at?: string | null
+          picked_up_at?: string | null
           cancelled_at?: string | null
           cancel_reason?: string | null
           cancelled_by?: 'booth' | 'admin' | null
@@ -632,6 +634,7 @@ export interface Database {
           confirmed_at?: string | null
           estimated_minutes?: number | null
           ready_at?: string | null
+          picked_up_at?: string | null
           cancelled_at?: string | null
           cancel_reason?: string | null
           cancelled_by?: 'booth' | 'admin' | null

@@ -15,6 +15,7 @@
    - `0008_toss_order_id_timestamp.sql` — generate_toss_order_id() 타임스탬프 조합으로 교체 (orderId 충돌 방지)
    - `0009_survey_gender_other.sql` — surveys.gender 에 'other' 허용 (봄푸드 설문 성별 3선택)
    - `0010_menu_stock.sql` — food_menus.stock 컬럼 + decrement_menu_stock RPC (instant 재고 관리)
+   - `0011_order_picked_up_at.sql` — orders.picked_up_at (instant 수령 확인)
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행

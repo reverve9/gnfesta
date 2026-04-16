@@ -151,6 +151,19 @@ export async function markBoothOrderReady(orderId: string): Promise<void> {
 }
 
 /**
+ * instant 주문 "수령완료" — picked_up_at 채움.
+ * 이미 completed 상태이므로 status 전이 없음.
+ */
+export async function markOrderPickedUp(orderId: string): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({ picked_up_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .is('picked_up_at', null)
+  if (error) throw new Error(`수령완료 처리 실패: ${error.message}`)
+}
+
+/**
  * Realtime 구독 — orders 테이블 (booth_id 필터) 단일 채널.
  * 새 INSERT 는 payments → orders 흐름에서 orders INSERT 시점에 알림이 오지만,
  * 아직 status 가 'pending' 이라 리스트에 안 들어옴. pending → paid UPDATE

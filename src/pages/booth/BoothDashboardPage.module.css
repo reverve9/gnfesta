@@ -422,6 +422,14 @@
   background-color: var(--color-primary-dark);
 }
 
+.actionPickup {
+  background-color: #059669;
+}
+
+.actionPickup:hover:not(:disabled) {
+  background-color: #047857;
+}
+
 .actionReject {
   background-color: #DC2626;
   color: #FFFFFF;
