@@ -47,54 +47,65 @@ export default function StampRallyPage() {
       <PageTitle title="스탬프 랠리" subtitle="Stamp Rally" />
 
       <div className={styles.intro}>
-        <p>
-          부스에서 음식을 주문하거나 프로그램에 참여하면 스탬프가 적립됩니다.
-          <br />
-          <strong>{STAMPS_REQUIRED}개</strong>를 모으면 완주!
-        </p>
+        <strong>{STAMPS_REQUIRED}개</strong> 스탬프를 모으면 완주!
       </div>
 
-      {/* 스탬프 카드 — 항상 표시 */}
-      <div className={styles.card}>
-        <div className={styles.cardHeader}>
-          <span className={styles.cardCount}>
-            {count} / {STAMPS_REQUIRED}
-          </span>
-          {completed && <span className={styles.completedBadge}>완주!</span>}
-        </div>
-        <div className={styles.grid}>
-          {Array.from({ length: STAMPS_REQUIRED }).map((_, i) => {
-            const stamp = filled[i]
-            return (
-              <div
-                key={i}
-                className={`${styles.slot} ${stamp ? styles.slotFilled : styles.slotEmpty}`}
-              >
+      {/* 진행 바 */}
+      <div className={styles.progressBar}>
+        <div
+          className={styles.progressFill}
+          style={{ width: `${(count / STAMPS_REQUIRED) * 100}%` }}
+        />
+        <span className={styles.progressText}>
+          {count} / {STAMPS_REQUIRED}
+        </span>
+      </div>
+
+      {/* 2열 그리드 — 써클 스탬프 */}
+      <div className={styles.grid}>
+        {Array.from({ length: STAMPS_REQUIRED }).map((_, i) => {
+          const stamp = filled[i]
+          return (
+            <div
+              key={i}
+              className={`${styles.slot} ${stamp ? styles.slotFilled : styles.slotEmpty}`}
+            >
+              <div className={styles.circle}>
                 {stamp ? (
                   <>
-                    <Check className={styles.slotIcon} />
-                    <span className={styles.slotLabel}>{stamp.label}</span>
+                    {stamp.imageUrl ? (
+                      <img
+                        src={stamp.imageUrl}
+                        alt={stamp.label}
+                        className={styles.circleImg}
+                      />
+                    ) : (
+                      <div className={styles.circleFallback}>
+                        <Stamp size={28} />
+                      </div>
+                    )}
+                    <div className={styles.checkOverlay}>
+                      <Check size={32} strokeWidth={3} />
+                    </div>
                   </>
                 ) : (
-                  <>
-                    <Stamp className={styles.slotIconEmpty} />
-                    <span className={styles.slotNum}>{i + 1}</span>
-                  </>
+                  <div className={styles.circleEmpty}>
+                    <span className={styles.circleNum}>{i + 1}</span>
+                  </div>
                 )}
               </div>
-            )
-          })}
-        </div>
+              <span className={styles.slotLabel}>
+                {stamp ? stamp.label : `스탬프 ${i + 1}`}
+              </span>
+            </div>
+          )
+        })}
       </div>
 
+      {/* 완주 */}
       {completed && (
-        <div className={styles.celebration}>
-          <div className={styles.celebrationIcon}>🎉</div>
-          <p className={styles.celebrationText}>
-            축하합니다! 스탬프 랠리를 완주하셨습니다.
-            <br />
-            운영 부스에서 완주 화면을 보여주시면 경품을 받으실 수 있습니다.
-          </p>
+        <div className={styles.completed}>
+          🎉 완주! 운영 부스에서 이 화면을 보여주세요.
         </div>
       )}
 
@@ -113,13 +124,13 @@ export default function StampRallyPage() {
           className={styles.searchBtn}
           disabled={loading || normalizePhone(phone).length !== 11}
         >
-          {loading ? '조회 중...' : '조회'}
+          {loading ? '...' : '조회'}
         </button>
       </form>
 
       {loaded && count === 0 && (
         <p className={styles.emptyHint}>
-          아직 스탬프가 없습니다. 부스에서 주문하거나 프로그램에 참여해 보세요!
+          아직 스탬프가 없습니다. 부스에서 주문해 보세요!
         </p>
       )}
     </div>

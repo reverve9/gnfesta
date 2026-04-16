@@ -4,17 +4,155 @@
 
 .intro {
   text-align: center;
-  font-size: var(--text-form-caption);
+  font-size: 14px;
   color: #6B7280;
-  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* ── 진행 바 ── */
+
+.progressBar {
+  position: relative;
+  height: 28px;
+  background: #F3F4F6;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.progressFill {
+  position: absolute;
+  inset: 0;
+  width: 0;
+  background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+  border-radius: 14px;
+  transition: width 0.5s ease;
+}
+
+.progressText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+/* ── 2열 그리드 ── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
 }
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── 써클 ── */
+
+.circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.slotFilled .circle {
+  border: 3px solid #3B82F6;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.25);
+}
+
+.slotEmpty .circle {
+  border: 3px dashed #D1D5DB;
+}
+
+.circleImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.circleFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #DBEAFE, #EDE9FE);
+  color: #3B82F6;
+}
+
+.circleEmpty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F9FAFB;
+}
+
+.circleNum {
+  font-size: 28px;
+  font-weight: 800;
+  color: #D1D5DB;
+}
+
+.checkOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.45);
+  color: #fff;
+}
+
+.slotLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slotEmpty .slotLabel {
+  color: #9CA3AF;
+}
+
+/* ── 완주 ── */
+
+.completed {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #B45309;
+  background: #FEF3C7;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+/* ── 폰 조회 ── */
 
 .phoneForm {
   display: flex;
   gap: 8px;
   align-items: flex-end;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .phoneForm > :first-child {
@@ -39,119 +177,8 @@
   cursor: not-allowed;
 }
 
-/* ── 스탬프 카드 ── */
-
-.card {
-  background: #fff;
-  border: 2px solid #E5E7EB;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-}
-
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.cardCount {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.completedBadge {
-  background: linear-gradient(135deg, #F59E0B, #EF4444);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.slot {
-  aspect-ratio: 1;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.slotFilled {
-  background: linear-gradient(135deg, #DBEAFE, #EDE9FE);
-  border: 2px solid #3B82F6;
-}
-
-.slotFilled .slotIcon {
-  width: 28px;
-  height: 28px;
-  color: #2563EB;
-}
-
-.slotLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1E40AF;
-  text-align: center;
-  line-height: 1.2;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.slotEmpty {
-  background: #F9FAFB;
-  border: 2px dashed #D1D5DB;
-}
-
-.slotIconEmpty {
-  width: 24px;
-  height: 24px;
-  color: #D1D5DB;
-}
-
-.slotNum {
-  font-size: 12px;
-  font-weight: 600;
-  color: #D1D5DB;
-}
-
-/* ── 완주 ── */
-
-.celebration {
-  text-align: center;
-  background: linear-gradient(135deg, #FEF3C7, #FECACA);
-  border-radius: 16px;
-  padding: 24px 20px;
-  margin-bottom: 20px;
-}
-
-.celebrationIcon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.celebrationText {
-  font-size: 14px;
-  color: #92400E;
-  line-height: 1.7;
-}
-
 .emptyHint {
   text-align: center;
   color: #9CA3AF;
   font-size: 14px;
-  padding: 12px 0;
 }
