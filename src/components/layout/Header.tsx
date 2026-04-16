@@ -9,7 +9,7 @@ import styles from './Header.module.css'
 
 const MENU_ITEMS = [
   { label: '공지사항', path: '/notice', icon: Megaphone, dimmed: false },
-  { label: '만족도조사', path: '/survey', icon: ClipboardCheck, dimmed: !isDevMode },
+  { label: '만족도조사', path: '/survey', icon: ClipboardCheck, dimmed: false },
   { label: '오시는 길', path: '/location', icon: MapPin, dimmed: !isDevMode },
 ]
 

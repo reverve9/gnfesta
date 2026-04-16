@@ -99,7 +99,7 @@ function CustomerRoutes() {
       {/* User */}
       <Route element={<Layout />}>
         <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/survey" element={isDevMode ? <SurveyPage /> : <ComingSoonPage />} />
+        <Route path="/survey" element={<SurveyPage />} />
         <Route path="/location" element={isDevMode ? <LocationPage /> : <ComingSoonPage />} />
         <Route path="/notice" element={<NoticePage />} />
         <Route path="/notice/:id" element={<NoticeDetailPage />} />
