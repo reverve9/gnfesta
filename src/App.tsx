@@ -13,6 +13,7 @@ import CheckoutSuccessPage from '@/pages/CheckoutSuccessPage'
 import CheckoutFailPage from '@/pages/CheckoutFailPage'
 import OrderStatusPage from '@/pages/OrderStatusPage'
 import CouponClaimPage from '@/pages/CouponClaimPage'
+import StampRallyPage from '@/pages/StampRallyPage'
 import ComingSoonPage from '@/pages/ComingSoonPage'
 import { isDevMode } from '@/config/flags'
 import FestivalPage from '@/pages/program/FestivalPage'
@@ -110,7 +111,7 @@ function CustomerRoutes() {
         {/* Festival 페이지: gnfesta(메인) / food(내부 섹션) — 같은 컴포넌트 공유 */}
         <Route path="/program/gnfesta" element={<FestivalPage slug="gnfesta" />} />
         <Route path="/program/food" element={isDevMode ? <FestivalPage slug="food" /> : <ComingSoonPage />} />
-        <Route path="/stamp-rally" element={<ComingSoonPage />} />
+        <Route path="/stamp-rally" element={<StampRallyPage />} />
         <Route path="/coupon/claim" element={isDevMode ? <CouponClaimPage /> : <ComingSoonPage />} />
       </Route>
     </Routes>

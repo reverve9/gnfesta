@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: '홈', path: '/', icon: Home, dimmed: false },
   { label: '강릉봄푸드페스타', path: '/program/gnfesta', icon: CalendarDays, dimmed: false },
   { label: '푸드부스', path: '/program/food', icon: Sparkles, dimmed: !isDevMode },
-  { label: '스탬프 랠리', path: '/stamp-rally', icon: Stamp, dimmed: true },
+  { label: '스탬프 랠리', path: '/stamp-rally', icon: Stamp, dimmed: false },
 ]
 
 export default function BottomNav() {
