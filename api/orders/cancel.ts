@@ -66,14 +66,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (oErr) return res.status(500).json({ error: `order 조회 실패: ${oErr.message}` })
   if (!order) return res.status(404).json({ error: '주문을 찾을 수 없습니다' })
 
-  // 2) 적격성 — 조리 완료된 주문은 거절 불가
-  if (order.ready_at !== null) {
+  // 2) 적격성
+  //    cook  — 조리 완료(ready_at)된 주문은 거절 불가
+  //    instant — 자동 completed 이므로 status/ready_at 무관하게 취소 허용
+  const isInstant = order.order_type === 'instant'
+  if (!isInstant && order.ready_at !== null) {
     return res.status(409).json({
       error: '이미 조리 완료된 주문은 거절할 수 없습니다',
       code: 'ORDER_ALREADY_READY',
     })
   }
-  if (order.status !== 'paid' && order.status !== 'confirmed') {
+  const cancellable = isInstant
+    ? ['paid', 'confirmed', 'completed']
+    : ['paid', 'confirmed']
+  if (!cancellable.includes(order.status)) {
     return res.status(409).json({
       error: `거절 불가 상태 (${order.status})`,
       code: 'ORDER_NOT_CANCELLABLE',

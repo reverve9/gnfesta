@@ -90,10 +90,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: '이미 전액 환불된 결제입니다' })
   }
 
-  // 이미 cancelled 된 부스 order 는 무시. 남은 paid 만 검증.
+  // 이미 cancelled 된 부스 order 는 무시. 남은 주문 중 cook 만 검증.
+  // instant 는 자동 completed 이므로 blocking 대상이 아님.
   const remainingOrders = (orders ?? []).filter((o) => o.status !== 'cancelled')
   const blocking = remainingOrders.find(
-    (o) => o.status !== 'paid' || o.confirmed_at !== null || o.ready_at !== null,
+    (o) =>
+      o.order_type !== 'instant' &&
+      (o.status !== 'paid' || o.confirmed_at !== null || o.ready_at !== null),
   )
   if (blocking) {
     return res.status(409).json({
@@ -156,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  // 남은 paid orders 만 cancelled 로 전이. 부스 거절 이력은 보존.
+  // 남은 orders (paid + instant completed) 를 cancelled 로 전이. 부스 거절 이력은 보존.
   const remainingIds = remainingOrders.map((o) => o.id)
   if (remainingIds.length > 0) {
     const { error: updOErr } = await supabase
