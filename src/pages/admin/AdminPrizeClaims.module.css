@@ -1,0 +1,57 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+
+.pageHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.headerLeft { display: flex; flex-direction: column; gap: 2px; }
+.headerRight { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.title { font-size: 20px; font-weight: 700; color: #111827; margin: 0; }
+.sub { font-size: 13px; color: #6B7280; margin: 0; }
+
+.statBox { text-align: center; padding: 0 12px; }
+.statValue { font-size: 20px; font-weight: 800; color: #111827; }
+.statLabel { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+
+.refreshBtn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #D1D5DB; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; }
+.refreshIcon { width: 16px; height: 16px; }
+.refreshIconSpin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.errorBanner { background: #FEF2F2; color: #B91C1C; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+
+.placeholder { text-align: center; padding: 40px 0; color: #9CA3AF; font-size: 14px; }
+
+/* ── 카드 리스트 ── */
+.list { display: flex; flex-direction: column; gap: 8px; }
+
+.card { background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; }
+
+.cardHeader { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; user-select: none; }
+.cardHeader:hover { background: #F9FAFB; }
+
+.cardMain { display: flex; align-items: center; gap: 12px; }
+.cardPhone { font-size: 15px; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums; }
+.cardCount { font-size: 13px; color: #6B7280; }
+
+.cardRight { display: flex; align-items: center; gap: 8px; color: #9CA3AF; }
+
+.badgeClaimed { font-size: 12px; font-weight: 600; color: #059669; background: #D1FAE5; padding: 3px 10px; border-radius: 12px; }
+.badgeUnclaimed { font-size: 12px; font-weight: 600; color: #D97706; background: #FEF3C7; padding: 3px 10px; border-radius: 12px; }
+
+/* ── 카드 바디 (스탬프 리스트 + 액션) ── */
+.cardBody { padding: 0 16px 14px; border-top: 1px solid #F3F4F6; }
+
+.stampList { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.stampItem { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #F9FAFB; border-radius: 8px; }
+.stampLabel { font-size: 13px; font-weight: 600; color: #374151; }
+.stampMeta { font-size: 12px; color: #9CA3AF; }
+
+.cardActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+.claimBtn { display: flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; border-radius: 8px; background: #059669; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+.claimBtn:hover:not(:disabled) { background: #047857; }
+.claimBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.unclaimBtn { padding: 6px 14px; border: 1px solid #D1D5DB; border-radius: 8px; background: #fff; font-size: 13px; color: #6B7280; cursor: pointer; }
+.unclaimBtn:hover:not(:disabled) { background: #F9FAFB; }
+.unclaimBtn:disabled { opacity: 0.5; }
+
+.claimedInfo { font-size: 13px; color: #059669; }

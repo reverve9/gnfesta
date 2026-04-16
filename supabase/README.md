@@ -16,6 +16,7 @@
    - `0009_survey_gender_other.sql` — surveys.gender 에 'other' 허용 (봄푸드 설문 성별 3선택)
    - `0010_menu_stock.sql` — food_menus.stock 컬럼 + decrement_menu_stock RPC (instant 재고 관리)
    - `0011_order_picked_up_at.sql` — orders.picked_up_at (instant 수령 확인)
+   - `0012_stamp_prize_claims.sql` — stamp_prize_claims 테이블 (경품 수령 기록)
 4. 에러 없이 완료되면 검증:
    ```sql
    SELECT slug, name FROM festivals;           -- gnfesta / food 2행

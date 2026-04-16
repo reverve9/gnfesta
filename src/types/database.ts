@@ -777,6 +777,33 @@ export interface Database {
           },
         ]
       }
+      stamp_prize_claims: {
+        Row: {
+          id: string
+          phone: string
+          claimed_at: string
+          claimed_by: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          phone: string
+          claimed_at?: string
+          claimed_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          phone?: string
+          claimed_at?: string
+          claimed_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       booth_waiting_counts: {
@@ -827,3 +854,4 @@ export type OrderItem = Database['public']['Tables']['order_items']['Row']
 export type OrderItemInsert = Database['public']['Tables']['order_items']['Insert']
 export type BoothAccount = Database['public']['Tables']['booth_accounts']['Row']
 export type BoothAccountInsert = Database['public']['Tables']['booth_accounts']['Insert']
+export type StampPrizeClaim = Database['public']['Tables']['stamp_prize_claims']['Row']

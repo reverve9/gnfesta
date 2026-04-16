@@ -3,6 +3,7 @@ import { Check, Stamp } from 'lucide-react'
 import PageTitle from '@/components/layout/PageTitle'
 import Input from '@/components/ui/Input'
 import { fetchMyStamps, STAMPS_REQUIRED, type StampEntry } from '@/lib/stamps'
+import { checkPrizeClaimed } from '@/lib/prizeClaims'
 import { loadLastPhone, saveLastPhone, normalizePhone } from '@/lib/phone'
 import styles from './StampRallyPage.module.css'
 
@@ -11,6 +12,7 @@ export default function StampRallyPage() {
   const [stamps, setStamps] = useState<StampEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [prizeClaimed, setPrizeClaimed] = useState(false)
 
   const load = useCallback(async (p: string) => {
     const normalized = normalizePhone(p)
@@ -20,6 +22,10 @@ export default function StampRallyPage() {
       const data = await fetchMyStamps(normalized)
       setStamps(data)
       saveLastPhone(normalized)
+      if (data.length >= STAMPS_REQUIRED) {
+        const claimed = await checkPrizeClaimed(normalized)
+        setPrizeClaimed(claimed)
+      }
     } catch {
       setStamps([])
     } finally {
@@ -103,9 +109,14 @@ export default function StampRallyPage() {
       </div>
 
       {/* 완주 */}
-      {completed && (
+      {completed && !prizeClaimed && (
         <div className={styles.completed}>
-          🎉 완주! 운영 부스에서 이 화면을 보여주세요.
+          🎉 완주! 운영 부스에서 이 화면을 보여주시면 경품을 수령하실 수 있습니다.
+        </div>
+      )}
+      {completed && prizeClaimed && (
+        <div className={styles.completedClaimed}>
+          경품 수령이 완료되었습니다. 감사합니다!
         </div>
       )}
 

@@ -28,6 +28,7 @@ import AdminCoupons from '@/pages/admin/AdminCoupons'
 import AdminNotices from '@/pages/admin/AdminNotices'
 import AdminQrCodes from '@/pages/admin/AdminQrCodes'
 import AdminProgramQrCodes from '@/pages/admin/AdminProgramQrCodes'
+import AdminPrizeClaims from '@/pages/admin/AdminPrizeClaims'
 import BoothLoginPage from '@/pages/booth/BoothLoginPage'
 import BoothDashboardPage from '@/pages/booth/BoothDashboardPage'
 import FloatingInstallButton from '@/components/pwa/FloatingInstallButton'
@@ -74,6 +75,7 @@ function AdminRoutes() {
         <Route index element={<Navigate to="/notices" replace />} />
         <Route path="notices" element={<AdminNotices />} />
         <Route path="coupons" element={<AdminCoupons />} />
+        <Route path="prize-claims" element={<AdminPrizeClaims />} />
         <Route path="revenue" element={<AdminRevenue />} />
         <Route path="survey" element={<AdminSurvey />} />
         <Route path="content/gnfesta" element={<AdminContentDetail slug="gnfesta" />} />

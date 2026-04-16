@@ -146,6 +146,16 @@
   margin-bottom: 20px;
 }
 
+.completedClaimed {
+  text-align: center;
+  font-size: 14px;
+  color: #6B7280;
+  background: #F3F4F6;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 20px;
+}
+
 /* ── 폰 조회 ── */
 
 .phoneForm {
