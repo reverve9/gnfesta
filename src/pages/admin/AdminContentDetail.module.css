@@ -301,6 +301,52 @@
   margin-top: 8px;
 }
 
+.couponSection {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background-color: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.couponHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.couponToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  cursor: pointer;
+}
+
+.couponToggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.couponHint {
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.hintMuted {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 400;
+}
+
 .saveBtn {
   display: inline-flex;
   align-items: center;

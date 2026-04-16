@@ -12,6 +12,7 @@ import CheckoutPage from '@/pages/CheckoutPage'
 import CheckoutSuccessPage from '@/pages/CheckoutSuccessPage'
 import CheckoutFailPage from '@/pages/CheckoutFailPage'
 import OrderStatusPage from '@/pages/OrderStatusPage'
+import CouponClaimPage from '@/pages/CouponClaimPage'
 import ComingSoonPage from '@/pages/ComingSoonPage'
 import { isDevMode } from '@/config/flags'
 import FestivalPage from '@/pages/program/FestivalPage'
@@ -25,6 +26,7 @@ import AdminOrders from '@/pages/admin/AdminOrders'
 import AdminCoupons from '@/pages/admin/AdminCoupons'
 import AdminNotices from '@/pages/admin/AdminNotices'
 import AdminQrCodes from '@/pages/admin/AdminQrCodes'
+import AdminProgramQrCodes from '@/pages/admin/AdminProgramQrCodes'
 import BoothLoginPage from '@/pages/booth/BoothLoginPage'
 import BoothDashboardPage from '@/pages/booth/BoothDashboardPage'
 import FloatingInstallButton from '@/components/pwa/FloatingInstallButton'
@@ -80,6 +82,7 @@ function AdminRoutes() {
         <Route path="monitor" element={<AdminMonitor />} />
         <Route path="orders" element={<AdminOrders />} />
         <Route path="qrcodes" element={<AdminQrCodes />} />
+        <Route path="program-qrcodes" element={<AdminProgramQrCodes />} />
       </Route>
       <Route path="*" element={<Navigate to="/notices" replace />} />
     </Routes>
@@ -108,6 +111,7 @@ function CustomerRoutes() {
         <Route path="/program/gnfesta" element={<FestivalPage slug="gnfesta" />} />
         <Route path="/program/food" element={isDevMode ? <FestivalPage slug="food" /> : <ComingSoonPage />} />
         <Route path="/stamp-rally" element={<ComingSoonPage />} />
+        <Route path="/coupon/claim" element={isDevMode ? <CouponClaimPage /> : <ComingSoonPage />} />
       </Route>
     </Routes>
   )

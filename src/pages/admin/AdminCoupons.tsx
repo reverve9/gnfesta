@@ -32,9 +32,11 @@ const STATUS_LABEL: Record<'active' | 'used' | 'expired', string> = {
   expired: '만료',
 }
 
-const SOURCE_LABEL: Record<'manual' | 'survey', string> = {
+const SOURCE_LABEL: Record<'manual' | 'survey' | 'payment' | 'program', string> = {
   manual: '수동',
   survey: '설문',
+  payment: '결제',
+  program: '프로그램',
 }
 
 export default function AdminCoupons() {
@@ -93,7 +95,7 @@ export default function AdminCoupons() {
       code: r.code,
       discount_amount: r.discount_amount,
       status: STATUS_LABEL[r.effectiveStatus],
-      source: SOURCE_LABEL[r.issued_source as 'manual' | 'survey'] ?? r.issued_source,
+      source: SOURCE_LABEL[r.issued_source] ?? r.issued_source,
       phone: r.phone ?? '',
       created_at: fmtDateKst(r.created_at),
       expires_at: fmtDateKst(r.expires_at),

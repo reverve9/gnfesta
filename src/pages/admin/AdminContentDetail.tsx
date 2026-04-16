@@ -52,6 +52,28 @@ type EventForm = {
   schedule: string
   venue: string
   description: string
+  couponEnabled: boolean
+  /** 숫자 입력용 문자열. 빈문자열 = 서버 기본값 사용 */
+  couponDiscount: string
+  couponMinOrder: string
+  /** datetime-local 포맷 ('YYYY-MM-DDTHH:MM'). 빈문자열 = 제한 없음 */
+  couponStartsAt: string
+  couponEndsAt: string
+}
+
+// ISO → <input type="datetime-local"> 포맷 (local tz 기준 — 어드민 KST 전제)
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function localInputToIso(v: string): string | null {
+  if (!v) return null
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
 }
 
 function toEventForm(e: FestivalEvent): EventForm {
@@ -60,6 +82,11 @@ function toEventForm(e: FestivalEvent): EventForm {
     schedule: e.schedule ?? '',
     venue: e.venue ?? '',
     description: e.description ?? '',
+    couponEnabled: e.coupon_enabled ?? false,
+    couponDiscount: e.coupon_discount != null ? String(e.coupon_discount) : '',
+    couponMinOrder: e.coupon_min_order != null ? String(e.coupon_min_order) : '',
+    couponStartsAt: isoToLocalInput(e.coupon_starts_at),
+    couponEndsAt: isoToLocalInput(e.coupon_ends_at),
   }
 }
 
@@ -215,10 +242,10 @@ export default function AdminContentDetail({ slug }: Props) {
   }
 
   // ── event 핸들러 (gnfesta) ─────────────────────────────────────────────
-  const updateEventField = (
+  const updateEventField = <K extends keyof EventForm>(
     id: string,
-    field: keyof EventForm,
-    value: string,
+    field: K,
+    value: EventForm[K],
   ) => {
     setEventForms((prev) => ({
       ...prev,
@@ -229,6 +256,8 @@ export default function AdminContentDetail({ slug }: Props) {
   const handleEventSave = async (event: FestivalEvent) => {
     setEventSavingId(event.id)
     const form = eventForms[event.id]
+    const discount = form.couponDiscount.trim()
+    const minOrder = form.couponMinOrder.trim()
     const { error } = await supabase
       .from('festival_events')
       .update({
@@ -236,6 +265,11 @@ export default function AdminContentDetail({ slug }: Props) {
         schedule: form.schedule || null,
         venue: form.venue || null,
         description: form.description || null,
+        coupon_enabled: form.couponEnabled,
+        coupon_discount: discount ? Number(discount) : null,
+        coupon_min_order: minOrder ? Number(minOrder) : null,
+        coupon_starts_at: localInputToIso(form.couponStartsAt),
+        coupon_ends_at: localInputToIso(form.couponEndsAt),
       })
       .eq('id', event.id)
     setEventSavingId(null)
@@ -624,6 +658,107 @@ export default function AdminContentDetail({ slug }: Props) {
                                 }
                               />
                             </div>
+                            {ev.kind === 'program' && (
+                              <div className={styles.couponSection}>
+                                <div className={styles.couponHeader}>
+                                  <label className={styles.couponToggle}>
+                                    <input
+                                      type="checkbox"
+                                      checked={form.couponEnabled}
+                                      onChange={(e) =>
+                                        updateEventField(ev.id, 'couponEnabled', e.target.checked)
+                                      }
+                                    />
+                                    <span>스탬프랠리 쿠폰 활성화</span>
+                                  </label>
+                                  <span className={styles.couponHint}>
+                                    활성화 시 프로그램 QR 스캔 → 자동 발급
+                                  </span>
+                                </div>
+                                {form.couponEnabled && (
+                                  <>
+                                    <div className={styles.row}>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          할인액 (원){' '}
+                                          <span className={styles.hintMuted}>비워두면 2,000</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="number"
+                                          min={0}
+                                          value={form.couponDiscount}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponDiscount',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          최소 주문액{' '}
+                                          <span className={styles.hintMuted}>비워두면 10,000</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="number"
+                                          min={0}
+                                          value={form.couponMinOrder}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponMinOrder',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className={styles.row}>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          발급 시작{' '}
+                                          <span className={styles.hintMuted}>비워두면 제한 없음</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="datetime-local"
+                                          value={form.couponStartsAt}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponStartsAt',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          발급 종료{' '}
+                                          <span className={styles.hintMuted}>비워두면 제한 없음</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="datetime-local"
+                                          value={form.couponEndsAt}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponEndsAt',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                             <div className={styles.actions}>
                               <button
                                 className={styles.saveBtn}
@@ -875,6 +1010,107 @@ export default function AdminContentDetail({ slug }: Props) {
                                 }
                               />
                             </div>
+                            {ev.kind === 'program' && (
+                              <div className={styles.couponSection}>
+                                <div className={styles.couponHeader}>
+                                  <label className={styles.couponToggle}>
+                                    <input
+                                      type="checkbox"
+                                      checked={form.couponEnabled}
+                                      onChange={(e) =>
+                                        updateEventField(ev.id, 'couponEnabled', e.target.checked)
+                                      }
+                                    />
+                                    <span>스탬프랠리 쿠폰 활성화</span>
+                                  </label>
+                                  <span className={styles.couponHint}>
+                                    활성화 시 프로그램 QR 스캔 → 자동 발급
+                                  </span>
+                                </div>
+                                {form.couponEnabled && (
+                                  <>
+                                    <div className={styles.row}>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          할인액 (원){' '}
+                                          <span className={styles.hintMuted}>비워두면 2,000</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="number"
+                                          min={0}
+                                          value={form.couponDiscount}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponDiscount',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          최소 주문액{' '}
+                                          <span className={styles.hintMuted}>비워두면 10,000</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="number"
+                                          min={0}
+                                          value={form.couponMinOrder}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponMinOrder',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className={styles.row}>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          발급 시작{' '}
+                                          <span className={styles.hintMuted}>비워두면 제한 없음</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="datetime-local"
+                                          value={form.couponStartsAt}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponStartsAt',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                      <div className={styles.field}>
+                                        <label className={styles.label}>
+                                          발급 종료{' '}
+                                          <span className={styles.hintMuted}>비워두면 제한 없음</span>
+                                        </label>
+                                        <input
+                                          className={styles.input}
+                                          type="datetime-local"
+                                          value={form.couponEndsAt}
+                                          onChange={(e) =>
+                                            updateEventField(
+                                              ev.id,
+                                              'couponEndsAt',
+                                              e.target.value,
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                             <div className={styles.actions}>
                               <button
                                 className={styles.saveBtn}

@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+import {
+  cancelCouponsForOrders,
+  restoreAppliedCouponIfPossible,
+} from '../_lib/coupons'
 
 /**
  * 부스 단위 주문 거절 + 부분 환불.
@@ -172,6 +176,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: `order 는 cancelled 됐지만 payments 업데이트 실패: ${updPErr.message}`,
       tossResult: tossJson,
     })
+  }
+
+  // 6) 쿠폰 후처리 (best-effort — 실패해도 취소 자체는 성공 처리)
+  //    (a) 이 order 로 발급됐던 payment 쿠폰 회수
+  //    (b) 이 결제가 전액 환불 도달 + 쿠폰 사용 결제면 쿠폰 복원 (만료 전만)
+  await cancelCouponsForOrders(supabase, [orderId])
+  if (reachedFull && payment.coupon_id) {
+    await restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
   }
 
   return res.status(200).json({

@@ -160,6 +160,94 @@ export async function issueSurveyCoupon(phone: string): Promise<Coupon> {
   return data
 }
 
+// ─── 결제 쿠폰 자동 발급 (부스 confirm / instant paid 시점) ──
+
+/** 결제 쿠폰 기본 할인액 — 설문 쿠폰과 동일 정책 (운영 중 조정 가능) */
+export const PAYMENT_COUPON_DISCOUNT = 2000
+export const PAYMENT_COUPON_MIN_ORDER = 10000
+
+export interface IssuePaymentCouponInput {
+  /** normalizePhone 후 11자리 */
+  phone: string
+  boothId: string
+  boothName: string
+  /** issued_from_order_id — 결제 취소 시 역추적용 */
+  orderId: string
+  festivalId?: string | null
+  /** 기본 SURVEY_COUPON_EXPIRES_AT (축제 종료일) */
+  expiresAt?: string
+}
+
+/**
+ * 결제 쿠폰 발급 — (phone, booth_id) where source='payment' unique.
+ *  - 이미 발급된 매장이면 23505 → null 리턴 (조용히 스킵)
+ *  - phone 형식 깨지면 null
+ */
+export async function issuePaymentCoupon(
+  input: IssuePaymentCouponInput,
+): Promise<Coupon | null> {
+  if (!input.phone || input.phone.length !== 11) return null
+  const code = await generateUniqueCouponCode()
+  const { data, error } = await supabase
+    .from('coupons')
+    .insert({
+      code,
+      discount_amount: PAYMENT_COUPON_DISCOUNT,
+      min_order_amount: PAYMENT_COUPON_MIN_ORDER,
+      status: 'active',
+      issued_source: 'payment',
+      phone: input.phone,
+      booth_id: input.boothId,
+      source_label: input.boothName,
+      issued_from_order_id: input.orderId,
+      expires_at: input.expiresAt ?? SURVEY_COUPON_EXPIRES_AT,
+      festival_id: input.festivalId ?? null,
+      note: `${input.boothName} 결제 쿠폰`,
+    })
+    .select()
+    .single()
+  if (error || !data) {
+    if (error?.code === '23505') return null // 이미 이 매장 쿠폰 보유 — 정책상 스킵
+    console.warn('[issuePaymentCoupon] failed', error)
+    return null
+  }
+  return data
+}
+
+/**
+ * orderId 로부터 결제 쿠폰 자동 발급.
+ *  - 호출 시점: 부스 confirm 직후 (cook) / markPaymentPaid 의 instant 주문 처리 직후
+ *  - payment.coupon_id 가 있으면 이중수혜 방지로 발급 스킵
+ */
+export async function issuePaymentCouponForOrder(
+  orderId: string,
+): Promise<Coupon | null> {
+  const { data: order, error: oErr } = await supabase
+    .from('orders')
+    .select('id, booth_id, booth_name, payment_id, festival_id')
+    .eq('id', orderId)
+    .maybeSingle()
+  if (oErr || !order || !order.booth_id) return null
+
+  const { data: payment, error: pErr } = await supabase
+    .from('payments')
+    .select('id, phone, coupon_id')
+    .eq('id', order.payment_id)
+    .maybeSingle()
+  if (pErr || !payment) return null
+
+  // 이중수혜 방지 — 쿠폰 쓴 결제는 새 쿠폰 발급 안 함
+  if (payment.coupon_id) return null
+
+  return issuePaymentCoupon({
+    phone: payment.phone,
+    boothId: order.booth_id,
+    boothName: order.booth_name,
+    orderId: order.id,
+    festivalId: order.festival_id,
+  })
+}
+
 // ─── 수동 발급 (어드민) ─────────────────────────────────────
 
 export interface CreateCouponManualInput {

@@ -45,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: '참여 매장 관리', path: '/food', icon: Store },
       { label: '매장 계정 관리', path: '/booth-accounts', icon: Key },
       { label: '부스 QR 코드', path: '/qrcodes', icon: QrCode },
+      { label: '프로그램 쿠폰 QR', path: '/program-qrcodes', icon: Ticket },
     ],
   },
   {

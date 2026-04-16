@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { startOfTodayKstAsUtc } from './orders'
+import { issuePaymentCouponForOrder } from './coupons'
 import type { Order, OrderItem } from '@/types/database'
 
 /**
@@ -84,6 +85,14 @@ export async function confirmBoothOrder(
     .eq('id', orderId)
     .is('confirmed_at', null)
   if (error) throw new Error(`확인 처리 실패: ${error.message}`)
+
+  // 결제 쿠폰 자동 발급 (best-effort — 실패해도 confirm 자체는 성공 처리).
+  // 이미 쿠폰 사용된 결제거나 동일 매장 쿠폰 보유 시 내부에서 스킵됨.
+  try {
+    await issuePaymentCouponForOrder(orderId)
+  } catch (err) {
+    console.warn('[confirmBoothOrder] coupon issue failed', err)
+  }
 }
 
 /**

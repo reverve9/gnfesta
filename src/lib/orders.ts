@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { issuePaymentCouponForOrder } from './coupons'
 import type { CartItem } from '@/store/cartStore'
 import type { Order, OrderItem, Payment } from '@/types/database'
 
@@ -193,6 +194,27 @@ export async function markPaymentPaid(
       console.warn(
         `[markPaymentPaid] coupon ${payment.coupon_id} already used — payment ${paymentId}`,
       )
+    }
+  }
+
+  // 4) instant 주문은 이 시점에 이미 'completed' + confirmed_at 채워짐 →
+  //    결제 쿠폰 발급 타이밍 (cook 은 부스 confirm 시점에 발급).
+  //    쿠폰 쓴 결제(coupon_id 존재)는 이중수혜 방지로 issuePaymentCouponForOrder
+  //    내부에서 스킵됨.
+  const { data: instantOrders, error: iErr } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('payment_id', paymentId)
+    .eq('order_type', 'instant')
+  if (iErr) {
+    console.warn('[markPaymentPaid] instant orders 조회 실패', iErr)
+  } else if (instantOrders) {
+    for (const o of instantOrders) {
+      try {
+        await issuePaymentCouponForOrder(o.id)
+      } catch (err) {
+        console.warn(`[markPaymentPaid] coupon issue failed for order ${o.id}`, err)
+      }
     }
   }
 }

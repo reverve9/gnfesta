@@ -15,6 +15,16 @@ export interface FestivalEvent {
   thumbnail_url: string | null
   sort_order: number
   is_active: boolean
+  /** 스탬프랠리 프로그램 쿠폰 설정 (0007) — false 면 발급 API 거부 */
+  coupon_enabled: boolean
+  /** 할인액 원. null 이면 서버 기본값(2000) */
+  coupon_discount: number | null
+  /** 최소 주문액. null 이면 서버 기본값(10000) */
+  coupon_min_order: number | null
+  /** 발급 시작 (ISO). null = 제한 없음 */
+  coupon_starts_at: string | null
+  /** 발급 종료 (ISO). null = 제한 없음 */
+  coupon_ends_at: string | null
   created_at: string
   updated_at: string
 }

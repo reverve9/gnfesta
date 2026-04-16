@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+import {
+  cancelCouponsForOrders,
+  restoreAppliedCouponIfPossible,
+} from '../_lib/coupons'
 
 /**
  * 토스페이먼츠 결제 취소(환불) API — 어드민 풀환불.
@@ -170,6 +174,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tossResult: tossJson,
       })
     }
+  }
+
+  // 5) 쿠폰 후처리 (best-effort)
+  //    (a) 이 결제 하위 모든 order 로 발급됐던 payment 쿠폰 회수
+  //    (b) 이 결제에 사용된 쿠폰 복원 (만료 전만)
+  const allOrderIds = (orders ?? []).map((o) => o.id)
+  await cancelCouponsForOrders(supabase, allOrderIds)
+  if (payment.coupon_id) {
+    await restoreAppliedCouponIfPossible(supabase, payment.coupon_id)
   }
 
   return res.status(200).json({ ok: true, paymentId, tossResult: tossJson })
