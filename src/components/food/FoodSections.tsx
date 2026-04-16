@@ -554,8 +554,14 @@ function MenuItemRow({
   const boothUnavailable = !booth.is_open || booth.is_paused
   const orderable = !soldOut && !boothUnavailable && menu.price != null && menu.price > 0
 
+  const maxOrderable = menu.stock !== null ? menu.stock - (inCart?.quantity ?? 0) : Infinity
+
   const handleAdd = () => {
     if (!orderable || menu.price == null) return
+    if (pendingQty > maxOrderable) {
+      showToast(`재고가 부족해요 (남은 ${menu.stock}개, 장바구니 ${inCart?.quantity ?? 0}개)`)
+      return
+    }
     addItem({
       menuId: menu.id,
       boothId: booth.id,

@@ -193,7 +193,7 @@ export default function CheckoutPage() {
       const menuIds = items.map((i) => i.menuId)
       const { data: latestMenus, error: menuErr } = await supabase
         .from('food_menus')
-        .select('id, name, is_sold_out, is_active')
+        .select('id, name, is_sold_out, is_active, stock')
         .in('id', menuIds)
       if (menuErr) {
         throw new Error(`메뉴 상태 확인 실패: ${menuErr.message}`)
@@ -204,6 +204,24 @@ export default function CheckoutPage() {
       if (blocked.length > 0) {
         const names = blocked.map((m) => m.name).join(', ')
         showToast(`${names} — 품절된 메뉴가 있어 결제할 수 없어요`, {
+          type: 'error',
+          duration: 5000,
+        })
+        setSubmitting(false)
+        return
+      }
+      // 재고 수량 초과 체크
+      const overStock = (latestMenus ?? []).filter((m) => {
+        if (m.stock === null || m.stock === undefined) return false
+        const cartItem = items.find((i) => i.menuId === m.id)
+        return cartItem && cartItem.quantity > m.stock
+      })
+      if (overStock.length > 0) {
+        const msgs = overStock.map((m) => {
+          const cartItem = items.find((i) => i.menuId === m.id)
+          return `${m.name} (재고 ${m.stock}개, 주문 ${cartItem?.quantity ?? 0}개)`
+        })
+        showToast(`재고 부족: ${msgs.join(', ')}`, {
           type: 'error',
           duration: 5000,
         })
