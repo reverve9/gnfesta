@@ -45,16 +45,16 @@ export async function fetchMyStamps(phone: string): Promise<StampEntry[]> {
 
   // 3) 부스 썸네일 일괄 조회
   const allRows = [...(paymentRows ?? []), ...(programRows ?? [])]
-  const boothIds = [...new Set(allRows.map((r) => r.booth_id).filter(Boolean))]
+  const boothIds = [...new Set(allRows.map((r) => r.booth_id).filter((id): id is string => !!id))]
   const boothImages = new Map<string, string | null>()
 
   if (boothIds.length > 0) {
     const { data: booths } = await supabase
       .from('food_booths')
-      .select('id, image_url')
+      .select('id, thumbnail_url')
       .in('id', boothIds)
     for (const b of booths ?? []) {
-      boothImages.set(b.id, getAssetUrl(b.image_url))
+      boothImages.set(b.id, getAssetUrl(b.thumbnail_url))
     }
   }
 
