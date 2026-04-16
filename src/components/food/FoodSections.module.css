@@ -699,6 +699,12 @@
   min-height: 0;
 }
 
+.menuStock {
+  font-size: 11px;
+  color: #2563EB;
+  font-weight: 600;
+}
+
 /* ──────────────── 메뉴 액션 (수량 / 담기) ──────────────── */
 .menuActions {
   display: flex;

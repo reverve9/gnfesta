@@ -74,6 +74,7 @@ export interface FoodMenu {
   image_url: string | null
   is_signature: boolean
   is_sold_out: boolean
+  stock: number | null
   sort_order: number
   is_active: boolean
   menu_type: 'instant' | 'cook'

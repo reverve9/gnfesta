@@ -1,4 +1,4 @@
-import { X, Image as ImageIcon } from 'lucide-react'
+import { X, Image as ImageIcon, Minus, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   fetchBoothMenus,
@@ -6,6 +6,7 @@ import {
   setBoothOpen,
   setBoothPaused,
   setMenuSoldOut,
+  setMenuStock,
 } from '@/lib/boothMenus'
 import { getAssetUrl } from '@/lib/festival'
 import type { FoodBooth, FoodMenu } from '@/types/database'
@@ -50,7 +51,6 @@ export default function BoothMenuModal({ boothId, onClose }: BoothMenuModalProps
     }
   }, [refetch])
 
-  // ESC 닫기
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -110,6 +110,63 @@ export default function BoothMenuModal({ boothId, onClose }: BoothMenuModalProps
     },
     [busy],
   )
+
+  const handleStockChange = useCallback(
+    async (menu: FoodMenu, delta: number) => {
+      if (busy) return
+      const current = menu.stock ?? 0
+      const next = Math.max(0, current + delta)
+      setBusy(`menu-${menu.id}`)
+      setMenus((prev) =>
+        prev.map((m) =>
+          m.id === menu.id
+            ? { ...m, stock: next, is_sold_out: next <= 0 }
+            : m,
+        ),
+      )
+      try {
+        await setMenuStock(menu.id, next)
+      } catch (e) {
+        setMenus((prev) =>
+          prev.map((m) =>
+            m.id === menu.id ? { ...m, stock: current, is_sold_out: current <= 0 } : m,
+          ),
+        )
+        setError(e instanceof Error ? e.message : '재고 변경 실패')
+      } finally {
+        setBusy(null)
+      }
+    },
+    [busy],
+  )
+
+  const handleStockInput = useCallback(
+    async (menu: FoodMenu, value: string) => {
+      const num = parseInt(value, 10)
+      if (isNaN(num) || num < 0) return
+      if (busy) return
+      setBusy(`menu-${menu.id}`)
+      setMenus((prev) =>
+        prev.map((m) =>
+          m.id === menu.id
+            ? { ...m, stock: num, is_sold_out: num <= 0 }
+            : m,
+        ),
+      )
+      try {
+        await setMenuStock(menu.id, num)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '재고 변경 실패')
+        void refetch()
+      } finally {
+        setBusy(null)
+      }
+    },
+    [busy, refetch],
+  )
+
+  const instantMenus = menus.filter((m) => m.menu_type === 'instant')
+  const cookMenus = menus.filter((m) => m.menu_type === 'cook')
 
   return (
     <div
@@ -190,22 +247,108 @@ export default function BoothMenuModal({ boothId, onClose }: BoothMenuModalProps
                 </div>
               </section>
 
-              {/* ── 메뉴 품절 관리 ── */}
+              {/* ── 즉시판매 메뉴 (재고 관리) ── */}
+              {instantMenus.length > 0 && (
+                <section className={styles.section}>
+                  <div className={styles.sectionHead}>
+                    <div>
+                      <h3 className={styles.sectionTitle}>즉시판매 메뉴 · 재고</h3>
+                      <p className={styles.sectionDesc}>
+                        재고가 0이 되면 자동 품절됩니다. 판매 시 자동 차감.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles.menuList}>
+                    {instantMenus.map((menu) => {
+                      const soldOut = menu.is_sold_out
+                      const stock = menu.stock
+                      const hasStock = stock !== null
+                      return (
+                        <article
+                          key={menu.id}
+                          className={`${styles.menuCard} ${soldOut ? styles.menuCardSoldOut : ''}`}
+                        >
+                          <div className={styles.thumb}>
+                            {getAssetUrl(menu.image_url) ? (
+                              <img src={getAssetUrl(menu.image_url)!} alt={menu.name} />
+                            ) : (
+                              <div className={styles.thumbPlaceholder}>
+                                <ImageIcon />
+                              </div>
+                            )}
+                            {soldOut && <div className={styles.soldOutBadge}>품절</div>}
+                          </div>
+                          <div className={styles.info}>
+                            <div className={styles.nameRow}>
+                              <span className={styles.name}>{menu.name}</span>
+                            </div>
+                            <div className={styles.price}>
+                              {menu.price !== null
+                                ? `${menu.price.toLocaleString()}원`
+                                : '가격 미정'}
+                            </div>
+                          </div>
+                          {hasStock ? (
+                            <div className={styles.stockControl}>
+                              <button
+                                type="button"
+                                className={styles.stockBtn}
+                                onClick={() => handleStockChange(menu, -10)}
+                                disabled={busy !== null || stock <= 0}
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <input
+                                type="number"
+                                className={styles.stockInput}
+                                value={stock}
+                                onChange={(e) => handleStockInput(menu, e.target.value)}
+                                min={0}
+                              />
+                              <button
+                                type="button"
+                                className={styles.stockBtn}
+                                onClick={() => handleStockChange(menu, 10)}
+                                disabled={busy !== null}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.stockInitBtn}
+                              onClick={() => handleStockInput(menu, '50')}
+                              disabled={busy !== null}
+                            >
+                              재고 설정
+                            </button>
+                          )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* ── 조리 메뉴 (품절 토글) ── */}
               <section className={styles.section}>
                 <div className={styles.sectionHead}>
                   <div>
-                    <h3 className={styles.sectionTitle}>메뉴 품절 관리</h3>
+                    <h3 className={styles.sectionTitle}>
+                      {instantMenus.length > 0 ? '조리 메뉴 · 품절 관리' : '메뉴 품절 관리'}
+                    </h3>
                     <p className={styles.sectionDesc}>
                       품절 토글 시 손님 앱의 메뉴가 즉시 비활성화돼요.
                     </p>
                   </div>
                 </div>
 
-                {menus.length === 0 ? (
+                {cookMenus.length === 0 && instantMenus.length === 0 ? (
                   <div className={styles.empty}>등록된 메뉴가 없습니다.</div>
-                ) : (
+                ) : cookMenus.length === 0 ? null : (
                   <div className={styles.menuList}>
-                    {menus.map((menu) => {
+                    {cookMenus.map((menu) => {
                       const soldOut = menu.is_sold_out
                       const menuBusy = busy === `menu-${menu.id}`
                       return (

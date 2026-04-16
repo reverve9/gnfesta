@@ -30,6 +30,36 @@ export async function setMenuSoldOut(
   if (error) throw new Error(`품절 상태 변경 실패: ${error.message}`)
 }
 
+/** 재고 수량 설정 (null = 재고 관리 안 함, 0 이상 = 추적) */
+export async function setMenuStock(
+  menuId: string,
+  stock: number | null,
+): Promise<void> {
+  const update: Record<string, unknown> = { stock }
+  if (stock !== null && stock > 0) update.is_sold_out = false
+  if (stock !== null && stock <= 0) update.is_sold_out = true
+  const { error } = await supabase
+    .from('food_menus')
+    .update(update)
+    .eq('id', menuId)
+  if (error) throw new Error(`재고 변경 실패: ${error.message}`)
+}
+
+/**
+ * 결제 완료 시 메뉴 재고 차감 (RPC 사용 — 원자적).
+ * stock IS NULL 인 메뉴는 무시됨.
+ */
+export async function decrementStock(
+  menuId: string,
+  qty: number,
+): Promise<void> {
+  const { error } = await supabase.rpc('decrement_menu_stock', {
+    p_menu_id: menuId,
+    p_qty: qty,
+  })
+  if (error) console.warn('[decrementStock]', menuId, error)
+}
+
 /** 본인 부스 row 조회 (is_open / is_paused 포함) */
 export async function fetchBoothStatus(boothId: string): Promise<FoodBooth | null> {
   const { data, error } = await supabase

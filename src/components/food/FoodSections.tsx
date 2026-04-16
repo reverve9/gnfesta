@@ -594,6 +594,9 @@ function MenuItemRow({
             {menu.name}
           </span>
           {menu.description && <p className={styles.menuDesc}>{menu.description}</p>}
+          {menu.menu_type === 'instant' && menu.stock !== null && menu.stock > 0 && !soldOut && (
+            <span className={styles.menuStock}>남은 수량 {menu.stock}개</span>
+          )}
         </div>
         <div className={styles.menuRight}>
           <span className={styles.menuPrice}>

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { issuePaymentCouponForOrder } from './coupons'
+import { decrementStock } from './boothMenus'
 import type { CartItem } from '@/store/cartStore'
 import type { Order, OrderItem, Payment } from '@/types/database'
 
@@ -197,7 +198,24 @@ export async function markPaymentPaid(
     }
   }
 
-  // 4) instant 주문은 이 시점에 이미 'completed' + confirmed_at 채워짐 →
+  // 4) 재고 차감 (best-effort)
+  const { data: orderRows } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('payment_id', paymentId)
+  if (orderRows && orderRows.length > 0) {
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('menu_id, quantity')
+      .in('order_id', orderRows.map((o) => o.id))
+    if (items) {
+      for (const it of items) {
+        if (it.menu_id) decrementStock(it.menu_id, it.quantity).catch(() => {})
+      }
+    }
+  }
+
+  // 5) instant 주문은 이 시점에 이미 'completed' + confirmed_at 채워짐 →
   //    결제 쿠폰 발급 타이밍 (cook 은 부스 confirm 시점에 발급).
   //    쿠폰 쓴 결제(coupon_id 존재)는 이중수혜 방지로 issuePaymentCouponForOrder
   //    내부에서 스킵됨.

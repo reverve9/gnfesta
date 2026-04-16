@@ -336,6 +336,68 @@
   cursor: not-allowed;
 }
 
+/* ── 재고 컨트롤 ── */
+
+.stockControl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stockBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #374151;
+}
+
+.stockBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stockInput {
+  width: 52px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  -moz-appearance: textfield;
+}
+
+.stockInput::-webkit-inner-spin-button,
+.stockInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stockInitBtn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px dashed #9CA3AF;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+}
+
+.stockInitBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;
