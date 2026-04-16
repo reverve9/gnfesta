@@ -1,12 +1,14 @@
 import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, QrCode, Gift, Stamp, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import type { ComponentType, SVGProps } from 'react'
 import ConnectionBanner from '@/components/ui/ConnectionBanner'
 import { AdminAlertProvider, useAdminAlert } from './AdminAlertContext'
 import styles from './AdminLayout.module.css'
 
 const MONITOR_PATH = '/monitor'
+
+type AdminRole = 'superadmin' | 'admin'
 
 interface NavItem {
   label: string
@@ -60,23 +62,57 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-const ADMIN_ID = 'gnfesta'
-const ADMIN_PW = '123456'
+const ACCOUNTS: { id: string; pw: string; role: AdminRole }[] = [
+  { id: 'gnfesta', pw: '123456', role: 'superadmin' },
+  { id: 'admin', pw: 'GN2026!', role: 'admin' },
+]
+
+/** admin 역할이 접근 가능한 경로 목록 */
+const ADMIN_ALLOWED_PATHS = ['/monitor', '/orders', '/prize-claims']
+
+function getStoredRole(): AdminRole | null {
+  const v = sessionStorage.getItem('admin_role')
+  if (v === 'superadmin' || v === 'admin') return v
+  return null
+}
 
 function isAuthenticated() {
-  return sessionStorage.getItem('admin_auth') === 'true'
+  return sessionStorage.getItem('admin_auth') === 'true' && getStoredRole() !== null
+}
+
+function getVisibleGroups(role: AdminRole): NavGroup[] {
+  if (role === 'superadmin') return NAV_GROUPS
+  return NAV_GROUPS
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => ADMIN_ALLOWED_PATHS.includes(item.path)),
+    }))
+    .filter((g) => g.items.length > 0)
+}
+
+function getDefaultPath(role: AdminRole): string {
+  return role === 'superadmin' ? '/notices' : '/monitor'
+}
+
+function isPathAllowed(role: AdminRole, pathname: string): boolean {
+  if (role === 'superadmin') return true
+  return ADMIN_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
 export default function AdminLayout() {
   const navigate = useNavigate()
   const [authed, setAuthed] = useState(isAuthenticated)
+  const [role, setRole] = useState<AdminRole | null>(getStoredRole)
   const [id, setId] = useState('')
   const [pw, setPw] = useState('')
   const [error, setError] = useState(false)
 
   const handleLogin = () => {
-    if (id === ADMIN_ID && pw === ADMIN_PW) {
+    const account = ACCOUNTS.find((a) => a.id === id && a.pw === pw)
+    if (account) {
       sessionStorage.setItem('admin_auth', 'true')
+      sessionStorage.setItem('admin_role', account.role)
+      setRole(account.role)
       setAuthed(true)
       setError(false)
     } else {
@@ -86,7 +122,9 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('admin_auth')
+    sessionStorage.removeItem('admin_role')
     setAuthed(false)
+    setRole(null)
     setId('')
     setPw('')
   }
@@ -126,7 +164,7 @@ export default function AdminLayout() {
 
   return (
     <AdminAlertProvider>
-      <AdminLayoutInner navigate={navigate} onLogout={handleLogout} />
+      <AdminLayoutInner navigate={navigate} onLogout={handleLogout} role={role!} />
     </AdminAlertProvider>
   )
 }
@@ -134,10 +172,14 @@ export default function AdminLayout() {
 interface AdminLayoutInnerProps {
   navigate: ReturnType<typeof useNavigate>
   onLogout: () => void
+  role: AdminRole
 }
 
-function AdminLayoutInner({ navigate, onLogout }: AdminLayoutInnerProps) {
+function AdminLayoutInner({ navigate, onLogout, role }: AdminLayoutInnerProps) {
   const { alertCount, warnCount, totalPending, overdueCount } = useAdminAlert()
+  const location = useLocation()
+  const visibleGroups = getVisibleGroups(role)
+  const defaultPath = getDefaultPath(role)
 
   // document.title 동적 변경 — 미확인 주문 있으면 prefix `(N) `
   useEffect(() => {
@@ -152,16 +194,21 @@ function AdminLayoutInner({ navigate, onLogout }: AdminLayoutInnerProps) {
     }
   }, [totalPending])
 
+  // 권한 없는 경로 접근 시 리다이렉트
+  if (!isPathAllowed(role, location.pathname)) {
+    return <Navigate to={defaultPath} replace />
+  }
+
   return (
     <div className={styles.layout}>
       <ConnectionBanner />
       <aside className={styles.sidebar}>
-        <div className={styles.logo} onClick={() => navigate('/notices')}>
+        <div className={styles.logo} onClick={() => navigate(defaultPath)}>
           강릉봄푸드페스타
-          <span className={styles.badge}>Admin</span>
+          <span className={styles.badge}>{role === 'superadmin' ? 'Super Admin' : 'Admin'}</span>
         </div>
         <nav className={styles.nav}>
-          {NAV_GROUPS.filter((g) => g.items.length > 0).map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.title} className={styles.navGroup}>
               <div className={styles.navGroupTitle}>{group.title}</div>
               {group.items.map((item) => {
