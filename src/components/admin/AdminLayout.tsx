@@ -1,4 +1,4 @@
-import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, QrCode, Gift, LogOut } from 'lucide-react'
+import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, QrCode, Gift, Stamp, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import type { ComponentType, SVGProps } from 'react'
@@ -26,7 +26,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: '공지사항 관리', path: '/notices', icon: Megaphone },
       { label: '쿠폰 관리', path: '/coupons', icon: Ticket },
-      { label: '경품 수령 관리', path: '/prize-claims', icon: Gift },
       { label: '매출 관리', path: '/revenue', icon: ChartColumn },
       { label: '만족도조사 관리', path: '/survey', icon: ClipboardList },
     ],
@@ -46,7 +45,13 @@ const NAV_GROUPS: NavGroup[] = [
       { label: '참여 매장 관리', path: '/food', icon: Store },
       { label: '매장 계정 관리', path: '/booth-accounts', icon: Key },
       { label: '부스 QR 코드', path: '/qrcodes', icon: QrCode },
-      { label: '프로그램 쿠폰 QR', path: '/program-qrcodes', icon: Ticket },
+    ],
+  },
+  {
+    title: '스탬프 랠리',
+    items: [
+      { label: '프로그램 관리', path: '/stamp-rally', icon: Stamp },
+      { label: '경품 수령 관리', path: '/prize-claims', icon: Gift },
     ],
   },
   {

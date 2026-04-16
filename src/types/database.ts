@@ -109,6 +109,11 @@ export interface Database {
           thumbnail_url: string | null
           sort_order: number
           is_active: boolean
+          coupon_enabled: boolean
+          coupon_discount: number | null
+          coupon_min_order: number | null
+          coupon_starts_at: string | null
+          coupon_ends_at: string | null
           created_at: string
           updated_at: string
         }
@@ -124,6 +129,11 @@ export interface Database {
           thumbnail_url?: string | null
           sort_order?: number
           is_active?: boolean
+          coupon_enabled?: boolean
+          coupon_discount?: number | null
+          coupon_min_order?: number | null
+          coupon_starts_at?: string | null
+          coupon_ends_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -139,6 +149,11 @@ export interface Database {
           thumbnail_url?: string | null
           sort_order?: number
           is_active?: boolean
+          coupon_enabled?: boolean
+          coupon_discount?: number | null
+          coupon_min_order?: number | null
+          coupon_starts_at?: string | null
+          coupon_ends_at?: string | null
           created_at?: string
           updated_at?: string
         }
