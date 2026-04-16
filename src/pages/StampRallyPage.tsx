@@ -10,7 +10,7 @@ export default function StampRallyPage() {
   const [phone, setPhone] = useState(() => loadLastPhone() ?? '')
   const [stamps, setStamps] = useState<StampEntry[]>([])
   const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
   const load = useCallback(async (p: string) => {
     const normalized = normalizePhone(p)
@@ -20,11 +20,11 @@ export default function StampRallyPage() {
       const data = await fetchMyStamps(normalized)
       setStamps(data)
       saveLastPhone(normalized)
-      setSearched(true)
     } catch {
       setStamps([])
     } finally {
       setLoading(false)
+      setLoaded(true)
     }
   }, [])
 
@@ -54,12 +54,57 @@ export default function StampRallyPage() {
         </p>
       </div>
 
+      {/* 스탬프 카드 — 항상 표시 */}
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <span className={styles.cardCount}>
+            {count} / {STAMPS_REQUIRED}
+          </span>
+          {completed && <span className={styles.completedBadge}>완주!</span>}
+        </div>
+        <div className={styles.grid}>
+          {Array.from({ length: STAMPS_REQUIRED }).map((_, i) => {
+            const stamp = filled[i]
+            return (
+              <div
+                key={i}
+                className={`${styles.slot} ${stamp ? styles.slotFilled : styles.slotEmpty}`}
+              >
+                {stamp ? (
+                  <>
+                    <Check className={styles.slotIcon} />
+                    <span className={styles.slotLabel}>{stamp.label}</span>
+                  </>
+                ) : (
+                  <>
+                    <Stamp className={styles.slotIconEmpty} />
+                    <span className={styles.slotNum}>{i + 1}</span>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {completed && (
+        <div className={styles.celebration}>
+          <div className={styles.celebrationIcon}>🎉</div>
+          <p className={styles.celebrationText}>
+            축하합니다! 스탬프 랠리를 완주하셨습니다.
+            <br />
+            운영 부스에서 완주 화면을 보여주시면 경품을 받으실 수 있습니다.
+          </p>
+        </div>
+      )}
+
+      {/* 전화번호 조회 */}
       <form className={styles.phoneForm} onSubmit={handleSubmit}>
         <Input
-          label=""
+          label="전화번호로 내 스탬프 조회"
           type="tel"
           inputMode="tel"
-          placeholder="전화번호 입력 (010-0000-0000)"
+          placeholder="010-0000-0000"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -72,57 +117,10 @@ export default function StampRallyPage() {
         </button>
       </form>
 
-      {searched && (
-        <>
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <span className={styles.cardCount}>
-                {count} / {STAMPS_REQUIRED}
-              </span>
-              {completed && <span className={styles.completedBadge}>완주!</span>}
-            </div>
-            <div className={styles.grid}>
-              {Array.from({ length: STAMPS_REQUIRED }).map((_, i) => {
-                const stamp = filled[i]
-                return (
-                  <div
-                    key={i}
-                    className={`${styles.slot} ${stamp ? styles.slotFilled : styles.slotEmpty}`}
-                  >
-                    {stamp ? (
-                      <>
-                        <Check className={styles.slotIcon} />
-                        <span className={styles.slotLabel}>{stamp.label}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Stamp className={styles.slotIconEmpty} />
-                        <span className={styles.slotNum}>{i + 1}</span>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {completed && (
-            <div className={styles.celebration}>
-              <div className={styles.celebrationIcon}>🎉</div>
-              <p className={styles.celebrationText}>
-                축하합니다! 스탬프 랠리를 완주하셨습니다.
-                <br />
-                운영 부스에서 완주 화면을 보여주시면 경품을 받으실 수 있습니다.
-              </p>
-            </div>
-          )}
-
-          {!completed && count === 0 && (
-            <p className={styles.emptyHint}>
-              아직 스탬프가 없습니다. 부스에서 주문하거나 프로그램에 참여해 보세요!
-            </p>
-          )}
-        </>
+      {loaded && count === 0 && (
+        <p className={styles.emptyHint}>
+          아직 스탬프가 없습니다. 부스에서 주문하거나 프로그램에 참여해 보세요!
+        </p>
       )}
     </div>
   )
