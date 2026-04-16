@@ -237,9 +237,7 @@ export async function issuePaymentCouponForOrder(
     .maybeSingle()
   if (pErr || !payment) return null
 
-  // 이중수혜 방지 — 쿠폰 쓴 결제는 새 쿠폰 발급 안 함
-  if (payment.coupon_id) return null
-
+  // 스탬프는 할인쿠폰 사용 여부와 무관하게 항상 발급
   return issuePaymentCoupon({
     phone: payment.phone,
     boothId: order.booth_id,
