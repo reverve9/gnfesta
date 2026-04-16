@@ -1,9 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createClient } from '@supabase/supabase-js'
-import {
-  cancelCouponsForOrders,
-  restoreAppliedCouponIfPossible,
-} from '../_lib/coupons'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+async function cancelCouponsForOrders(supabase: SupabaseClient, orderIds: string[]) {
+  if (orderIds.length === 0) return
+  const { error } = await supabase
+    .from('coupons')
+    .update({ status: 'cancelled' })
+    .in('issued_from_order_id', orderIds)
+    .eq('status', 'active')
+  if (error) console.warn('[cancelCouponsForOrders]', error)
+}
+
+async function restoreAppliedCouponIfPossible(supabase: SupabaseClient, couponId: string) {
+  const { error } = await supabase
+    .from('coupons')
+    .update({ status: 'active', used_at: null, used_payment_id: null })
+    .eq('id', couponId)
+    .eq('status', 'used')
+    .gt('expires_at', new Date().toISOString())
+  if (error) console.warn('[restoreAppliedCouponIfPossible]', error)
+}
 
 /**
  * 부스 단위 주문 거절 + 부분 환불.
