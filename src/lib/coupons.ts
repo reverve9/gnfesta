@@ -289,6 +289,8 @@ export interface CouponsListFilters {
   /** active / used / expired(클라이언트 계산) / all */
   status?: 'all' | 'active' | 'used' | 'expired'
   source?: 'all' | 'manual' | 'survey'
+  /** issued_source IN 필터 — source 보다 우선 */
+  sources?: ('manual' | 'survey' | 'payment' | 'program')[]
   codeQuery?: string
 }
 
@@ -309,7 +311,11 @@ export async function fetchCouponsList(
   filters: CouponsListFilters,
 ): Promise<CouponRow[]> {
   let q = supabase.from('coupons').select().order('created_at', { ascending: false })
-  if (filters.source && filters.source !== 'all') q = q.eq('issued_source', filters.source)
+  if (filters.sources && filters.sources.length > 0) {
+    q = q.in('issued_source', filters.sources)
+  } else if (filters.source && filters.source !== 'all') {
+    q = q.eq('issued_source', filters.source)
+  }
   if (filters.codeQuery && filters.codeQuery.trim().length > 0) {
     q = q.ilike('code', `%${filters.codeQuery.trim().toUpperCase()}%`)
   }
