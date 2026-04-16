@@ -301,14 +301,13 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
       setBusyOrderId(card.orderId)
       try {
         await confirmBoothOrder(card.orderId, minutes)
-        await refetch()
       } catch (e) {
         setError(e instanceof Error ? e.message : '확인 처리 실패')
       } finally {
         setBusyOrderId(null)
       }
     },
-    [busyOrderId, refetch],
+    [busyOrderId],
   )
 
   const handleReady = useCallback(
@@ -317,14 +316,13 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
       setBusyOrderId(card.orderId)
       try {
         await markBoothOrderReady(card.orderId)
-        await refetch()
       } catch (e) {
         setError(e instanceof Error ? e.message : '준비완료 처리 실패')
       } finally {
         setBusyOrderId(null)
       }
     },
-    [busyOrderId, refetch],
+    [busyOrderId],
   )
 
   const handleCancelConfirm = useCallback(
@@ -338,7 +336,7 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
           duration: 4000,
         })
         setCancelTarget(null)
-        await refetch()
+        setData((prev) => prev.filter((d) => d.order.id !== cancelTarget.orderId))
       } catch (e) {
         const msg = e instanceof Error ? e.message : '주문 거절 실패'
         setError(msg)
@@ -347,7 +345,7 @@ function DashboardInner({ session, onLogout }: DashboardInnerProps) {
         setBusyOrderId(null)
       }
     },
-    [cancelTarget, busyOrderId, refetch, showToast],
+    [cancelTarget, busyOrderId, showToast],
   )
 
   return (
