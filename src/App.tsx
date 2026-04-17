@@ -51,9 +51,12 @@ const ArCollectionPage = lazy(() => import('@/features/ar/pages/CollectionPage')
 const ArRewardsPage = lazy(() => import('@/features/ar/pages/RewardsPage'))
 const ArFallbackPage = lazy(() => import('@/features/ar/pages/FallbackPage'))
 
-// Phase 0 — AR 기술 검증 페이지. Phase 1 에서 DEV 전용 가드로 전환 (프로덕션 번들 제외).
-// Phase 2 WebAR 작업 시 재활용 가능하므로 파일은 유지.
-const ArTechTestPage = lazy(() => import('@/features/ar/pages/TechTestPage'))
+// Phase 0 — AR 기술 검증 페이지. Phase 2 에서 isDevMode 가드로 전환.
+// - 로컬 dev + gnfesta-dev 배포에서 접근 가능, 프로덕션 배포는 VITE_DEV_MODE 미설정으로 차단
+// - 삼항 내부에서만 lazy 생성하여, 프로덕션 빌드 시 TechTestPage·TestScene 청크가 번들에서 제거됨
+const ArTechTestPage = isDevMode
+  ? lazy(() => import('@/features/ar/pages/TechTestPage'))
+  : null
 
 /**
  * Hostname 기반 앱 모드 분기.
@@ -127,8 +130,8 @@ function CustomerRoutes() {
       {/* Home (standalone: hero + footer) */}
       <Route path="/" element={<HomePage />} />
 
-      {/* AR tech test — DEV 전용 (프로덕션 번들 제외) */}
-      {import.meta.env.DEV && (
+      {/* AR tech test — isDevMode 전용 (프로덕션 번들·라우트 모두 제외) */}
+      {isDevMode && ArTechTestPage && (
         <Route
           path="/ar-tech-test"
           element={

@@ -4,11 +4,12 @@
 > 각 Phase 완료 시 갱신됩니다.
 
 - **프로젝트**: GNfesta AR 포획·수집 모듈 ("축제 탐험")
-- **현재 Phase**: 1 / 7 (✅ 완료 · Phase 2 프롬프트 대기)
+- **현재 Phase**: 2 / 7 (🔄 진행 중 — 머신 전환으로 일시 중단)
 - **마지막 업데이트**: 2026-04-17
-- **최신 커밋**: `7c4472b feat(ar): Phase 1 — DB 스키마 + 방어 RPC + 라우팅 뼈대` (origin/main)
+- **최신 커밋**: `13659a4 docs(ar): HANDOFF 에 다음 세션 시작 체크리스트·최신 커밋 해시 추가` (+ Phase 2 착수 시 `src/App.tsx` 가드 교체 커밋 예정)
 - **기획 브리프**: `_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md` (v0.3)
 - **Phase 1 빌드 핸드오프**: `_DEV/Handoff/phase1_build.md`
+- **Phase 2 재개 포인트**: `_DEV/Handoff/phase2_session_checkpoint.md` ⚠ **다음 세션 첫 진입 시 이 문서부터**
 
 ---
 
