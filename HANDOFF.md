@@ -92,9 +92,13 @@
 ## 🎯 Phase 1 — 시작 조건
 
 **Phase 1 착수 요구사항**:
-- [ ] Phase 0 실기 테스트 매트릭스 최소 5개 단말 기록 완료
-- [ ] 치명적 이슈(예: iOS Safari `getUserMedia` 권한 플로우 실패 등) 없음 확인
+- [x] Phase 0 실기 테스트 매트릭스 기록 (iPhone iOS 26.3.1 Safari 26.3 — L1·L2 검증)
+- [x] 치명적 이슈 없음 확인 (L1 60fps, L2 정상)
 - [ ] Phase 1 프롬프트 수신
+
+**Phase 0 실기 발견사항** (Phase 1~2 에서 반영):
+- iOS UA 버전 Frozen (`iPhone OS 18_7`) → 폴백 판정을 UA 파싱으로 하면 안 됨, feature detection 사용
+- `getUserMedia` 기본 해상도 640×480(VGA) → Phase 2 에서 `width/height ideal` 명시 필요
 
 **Phase 1 예상 범위**:
 - Supabase 마이그레이션: `ar_games`, `ar_zones`, `ar_creatures`, `ar_spawn_tokens`, `ar_captures`, `ar_capture_attempts`, `ar_rewards`, `ar_prize_claims`

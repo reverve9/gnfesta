@@ -10,7 +10,8 @@
 | # | 단말 | OS / 브라우저 | GPS 권한 | 카메라 권한 | 자이로 권한 | WebGL 버전 | FPS(유휴) | 폴백 Level | 이슈 |
 |---|---|---|---|---|---|---|---|---|---|
 | 예시 | iPhone 13 | iOS 17.2 Safari | granted | granted | granted (후 prompt) | WebGL 2 | 58 | Level 1 | 자이로 권한 요청은 버튼 터치 내에서만 작동 |
-| 1 |  |  |  |  |  |  |  |  |  |
+| 1 | iPhone (모델 미상) | iOS 26.3.1 Safari 26.3 | granted | granted | granted | WebGL 2 (Apple GPU) | 60 | Level 1 | L1 정상. Camera res 640×480(저), UA "iPhone OS 18_7"로 frozen |
+| 2 | 동일 iPhone | 동일 | granted | granted | denied (자이로 skip 버튼) | WebGL 2 | — | Level 2 | L2 정상, 큐브 중앙 고정 |
 | 2 |  |  |  |  |  |  |  |  |  |
 | 3 |  |  |  |  |  |  |  |  |  |
 | 4 |  |  |  |  |  |  |  |  |  |
@@ -62,4 +63,26 @@
 
 ---
 
-*AR 실기 테스트 매트릭스 v1.0 — 2026-04-17*
+## 🔍 Phase 0 실기 테스트 발견 (2026-04-17)
+
+### 발견 1 — iOS UA 문자열 버전 Frozen
+- iOS 17.4+ 부터 Apple 이 UA 의 `iPhone OS X_Y` 부분을 **고정값**(예: `18_7`)으로 유지
+- 실기 테스트에서 iOS 26.3.1 인데 UA 에는 `iPhone OS 18_7` 표시
+- **진짜 Safari 버전은 UA 의 `Version/26.3` 토큰**에서 확인 가능
+- **함의**: 브리프 §4 "iOS 16.4 미만 = Level 4 자동 폴백" 로직을 **UA 파싱으로 구현 금지**
+- 대안: `navigator.mediaDevices?.getUserMedia` 존재 + `getUserMedia()` 실제 호출 실패 여부로 **feature detection**
+
+### 발견 2 — `getUserMedia` 기본 해상도 낮음
+- 현재 요청: `{ video: { facingMode: { ideal: 'environment' } } }` (해상도 미지정)
+- iOS 26.3.1 응답: **640×480 (VGA)**
+- AR 캐릭터 배경 품질로는 부족
+- **Phase 2 반영**: `width: { ideal: 1280 }, height: { ideal: 720 }` 명시 필요 (720p 이상)
+
+### 발견 3 — FPS 초기 웜업 ~3초
+- 씬 초기화 직후 FPS 계산 첫 윈도우(1초)는 부분 측정 → 수치 낮게 보일 수 있음
+- 3초 후 안정적으로 60 도달 (iOS 26.3.1 / iPhone / Apple GPU)
+- **정상 동작**, 매트릭스 기록 시 "유휴 3초 이후 평균값" 기준
+
+---
+
+*AR 실기 테스트 매트릭스 v1.1 — 2026-04-17*
