@@ -86,6 +86,22 @@
   opacity: 0.85;
 }
 
+.startBtnSecondary {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--color-primary, #387594);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-primary, #387594);
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.startBtnSecondary:active {
+  background: rgba(56, 117, 148, 0.08);
+}
+
 .hint {
   font-size: 12px;
   color: var(--color-text-secondary, #6A6A6A);

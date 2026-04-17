@@ -219,10 +219,12 @@ export default function TechTestPage() {
     setDiag((d) => ({ ...d, errors: [...d.errors, msg] }))
   }, [])
 
-  const handleStart = useCallback(async () => {
+  const handleStart = useCallback(async (skipOrientation: boolean = false) => {
     setStarted(true)
 
-    const orientationPromise = requestOrientation()
+    const orientationPromise: Promise<PermStatus> = skipOrientation
+      ? Promise.resolve('denied')
+      : requestOrientation()
 
     const gpsStatus = await requestGeolocation()
     setPermissions((p) => ({ ...p, gps: gpsStatus }))
@@ -338,8 +340,15 @@ export default function TechTestPage() {
             <li>2. 카메라 권한 (후면 카메라 우선)</li>
             <li>3. 자이로 권한 {isIos ? '(iOS는 이 탭 안에서만 요청 가능)' : ''}</li>
           </ul>
-          <button type="button" className={styles.startBtn} onClick={handleStart}>
+          <button type="button" className={styles.startBtn} onClick={() => handleStart(false)}>
             테스트 시작
+          </button>
+          <button
+            type="button"
+            className={styles.startBtnSecondary}
+            onClick={() => handleStart(true)}
+          >
+            자이로 없이 시작 (Level 2 검증)
           </button>
           <p className={styles.hint}>권한 거부 시 폴백 레벨이 자동 진입합니다.</p>
         </div>
