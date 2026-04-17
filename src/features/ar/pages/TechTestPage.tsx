@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import styles from './TechTestPage.module.css'
 
 type PermStatus = 'prompt' | 'granted' | 'denied' | 'unsupported' | 'not-required'
@@ -184,6 +186,7 @@ function LevelBadge({ level }: { level: FallbackLevel }) {
 }
 
 export default function TechTestPage() {
+  const navigate = useNavigate()
   const [started, setStarted] = useState(false)
   const [permissions, setPermissions] = useState<Permissions>(INITIAL_PERMS)
   const [diag, setDiag] = useState<Diagnostics>(INITIAL_DIAG)
@@ -193,6 +196,24 @@ export default function TechTestPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<SceneHandle | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+
+  const cleanup = useCallback(() => {
+    sceneRef.current?.dispose()
+    sceneRef.current = null
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  const handleBack = useCallback(() => {
+    cleanup()
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/', { replace: true })
+    }
+  }, [cleanup, navigate])
 
   const pushError = useCallback((msg: string) => {
     setDiag((d) => ({ ...d, errors: [...d.errors, msg] }))
@@ -264,14 +285,9 @@ export default function TechTestPage() {
     document.head.appendChild(meta)
     return () => {
       document.head.removeChild(meta)
-      sceneRef.current?.dispose()
-      sceneRef.current = null
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop())
-        streamRef.current = null
-      }
+      cleanup()
     }
-  }, [])
+  }, [cleanup])
 
   const level: FallbackLevel = started ? computeLevel(permissions, diag.webgl) : 1
 
@@ -279,6 +295,14 @@ export default function TechTestPage() {
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
     return (
       <div className={styles.root}>
+        <button
+          type="button"
+          className={styles.backBtn}
+          onClick={handleBack}
+          aria-label="이전 페이지로"
+        >
+          <ArrowLeft size={22} />
+        </button>
         <div className={styles.intro}>
           <h1 className={styles.introTitle}>AR 기술 검증 테스트</h1>
           <p className={styles.introDesc}>
@@ -301,6 +325,14 @@ export default function TechTestPage() {
 
   return (
     <div className={styles.root}>
+      <button
+        type="button"
+        className={styles.backBtn}
+        onClick={handleBack}
+        aria-label="이전 페이지로"
+      >
+        <ArrowLeft size={22} />
+      </button>
       <div className={styles.stage}>
         {level < 4 && (
           <>

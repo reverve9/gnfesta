@@ -7,6 +7,29 @@
   font-family: var(--font-family, sans-serif);
 }
 
+.backBtn {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  padding: 0;
+}
+
+.backBtn:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .intro {
   position: relative;
   width: 100%;
