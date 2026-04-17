@@ -192,18 +192,18 @@ export default function TechTestPage() {
   const [diag, setDiag] = useState<Diagnostics>(INITIAL_DIAG)
   const [panelOpen, setPanelOpen] = useState(true)
 
+  const [stream, setStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<SceneHandle | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
 
   const cleanup = useCallback(() => {
     sceneRef.current?.dispose()
     sceneRef.current = null
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
+    setStream((prev) => {
+      prev?.getTracks().forEach((t) => t.stop())
+      return null
+    })
   }, [])
 
   const handleBack = useCallback(() => {
@@ -227,21 +227,13 @@ export default function TechTestPage() {
     const gpsStatus = await requestGeolocation()
     setPermissions((p) => ({ ...p, gps: gpsStatus }))
 
-    const { status: cameraStatus, stream, error: cameraErr } = await requestCamera()
+    const { status: cameraStatus, stream: mediaStream, error: cameraErr } = await requestCamera()
     setPermissions((p) => ({ ...p, camera: cameraStatus }))
     if (cameraErr) pushError(`camera: ${cameraErr}`)
 
-    if (stream) {
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        try {
-          await videoRef.current.play()
-        } catch (err) {
-          pushError(`video.play: ${err instanceof Error ? err.message : String(err)}`)
-        }
-      }
-      const track = stream.getVideoTracks()[0]
+    if (mediaStream) {
+      setStream(mediaStream)
+      const track = mediaStream.getVideoTracks()[0]
       const settings = track?.getSettings()
       if (settings?.width && settings?.height) {
         setDiag((d) => ({
@@ -263,19 +255,6 @@ export default function TechTestPage() {
       orientationSupported: orientationStatus !== 'unsupported',
       safeArea: readSafeArea(),
     }))
-
-    if (cameraStatus === 'granted' && webgl !== 'none' && canvasRef.current) {
-      try {
-        const mod = await import('../three/TestScene')
-        sceneRef.current = mod.createScene({
-          canvas: canvasRef.current,
-          enableParallax: orientationStatus === 'granted' || orientationStatus === 'not-required',
-          onFps: (fps) => setDiag((d) => ({ ...d, fps })),
-        })
-      } catch (err) {
-        pushError(`three: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
   }, [pushError])
 
   useEffect(() => {
@@ -288,6 +267,51 @@ export default function TechTestPage() {
       cleanup()
     }
   }, [cleanup])
+
+  // 카메라 스트림 → <video> 엘리먼트 연결
+  // 렌더 후 실행되므로 videoRef.current 가 null 이 되는 레이스 컨디션 방지
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !stream) return
+    if (video.srcObject === stream) return
+    video.srcObject = stream
+    video.play().catch((err) => {
+      pushError(`video.play: ${err instanceof Error ? err.message : String(err)}`)
+    })
+  }, [stream, pushError])
+
+  // Three.js 씬 초기화
+  // - 조건: started + 카메라 허용 + WebGL 지원 + 자이로 결과 확정 + canvas ref 연결
+  // - 렌더 후 실행되어 canvasRef 가 보장됨 (useEffect 시점)
+  useEffect(() => {
+    if (!started) return
+    if (permissions.camera !== 'granted') return
+    if (permissions.orientation === 'prompt') return // 자이로 결과 대기
+    if (diag.webgl === 'none') return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    if (sceneRef.current) return // idempotent
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const mod = await import('../three/TestScene')
+        if (cancelled || !canvasRef.current) return
+        sceneRef.current = mod.createScene({
+          canvas: canvasRef.current,
+          enableParallax:
+            permissions.orientation === 'granted' || permissions.orientation === 'not-required',
+          onFps: (fps) => setDiag((d) => ({ ...d, fps })),
+        })
+      } catch (err) {
+        pushError(`three: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [started, permissions.camera, permissions.orientation, diag.webgl, pushError])
 
   const level: FallbackLevel = started ? computeLevel(permissions, diag.webgl) : 1
 
