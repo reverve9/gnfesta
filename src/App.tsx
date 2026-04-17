@@ -31,16 +31,28 @@ import AdminQrCodes from '@/pages/admin/AdminQrCodes'
 import AdminProgramQrCodes from '@/pages/admin/AdminProgramQrCodes'
 import AdminPrizeClaims from '@/pages/admin/AdminPrizeClaims'
 import AdminStampRally from '@/pages/admin/AdminStampRally'
+import AdminArSettings from '@/features/ar/pages/admin/AdminArSettings'
+import AdminArZones from '@/features/ar/pages/admin/AdminArZones'
+import AdminArCreatures from '@/features/ar/pages/admin/AdminArCreatures'
+import AdminArStats from '@/features/ar/pages/admin/AdminArStats'
+import AdminArRewards from '@/features/ar/pages/admin/AdminArRewards'
+import AdminArPrizeClaims from '@/features/ar/pages/admin/AdminArPrizeClaims'
+import AdminArAttempts from '@/features/ar/pages/admin/AdminArAttempts'
 import BoothLoginPage from '@/pages/booth/BoothLoginPage'
 import BoothDashboardPage from '@/pages/booth/BoothDashboardPage'
 import FloatingInstallButton from '@/components/pwa/FloatingInstallButton'
 import { CartProvider } from '@/store/cartStore'
 import { ToastProvider } from '@/components/ui/Toast'
 
-// Phase 0 — AR 기술 검증 페이지 (URL 은폐 기반, dynamic import)
-// 내부 팀만 URL(/ar-tech-test)을 아는 전제로 프로덕션에도 포함.
-// Lazy import 라 방문 시에만 Three.js 청크 다운로드 — 일반 페이지 영향 없음.
-// Phase 1 이후 정식 AR 라우트 생기면 이 페이지는 제거.
+// Phase 1 — AR 정식 라우트 (전부 lazy import, Three.js 청크 격리)
+const ArIntroPage = lazy(() => import('@/features/ar/pages/IntroPage'))
+const ArPlayPage = lazy(() => import('@/features/ar/pages/PlayPage'))
+const ArCollectionPage = lazy(() => import('@/features/ar/pages/CollectionPage'))
+const ArRewardsPage = lazy(() => import('@/features/ar/pages/RewardsPage'))
+const ArFallbackPage = lazy(() => import('@/features/ar/pages/FallbackPage'))
+
+// Phase 0 — AR 기술 검증 페이지. Phase 1 에서 DEV 전용 가드로 전환 (프로덕션 번들 제외).
+// Phase 2 WebAR 작업 시 재활용 가능하므로 파일은 유지.
 const ArTechTestPage = lazy(() => import('@/features/ar/pages/TechTestPage'))
 
 /**
@@ -95,6 +107,14 @@ function AdminRoutes() {
         <Route path="orders" element={<AdminOrders />} />
         <Route path="qrcodes" element={<AdminQrCodes />} />
         <Route path="program-qrcodes" element={<AdminProgramQrCodes />} />
+        {/* AR 게임 관리 — Phase 1 스텁. 실제 UI 는 Phase 6 */}
+        <Route path="ar/settings" element={<AdminArSettings />} />
+        <Route path="ar/zones" element={<AdminArZones />} />
+        <Route path="ar/creatures" element={<AdminArCreatures />} />
+        <Route path="ar/stats" element={<AdminArStats />} />
+        <Route path="ar/rewards" element={<AdminArRewards />} />
+        <Route path="ar/prize-claims" element={<AdminArPrizeClaims />} />
+        <Route path="ar/attempts" element={<AdminArAttempts />} />
       </Route>
       <Route path="*" element={<Navigate to="/notices" replace />} />
     </Routes>
@@ -107,11 +127,56 @@ function CustomerRoutes() {
       {/* Home (standalone: hero + footer) */}
       <Route path="/" element={<HomePage />} />
 
+      {/* AR tech test — DEV 전용 (프로덕션 번들 제외) */}
+      {import.meta.env.DEV && (
+        <Route
+          path="/ar-tech-test"
+          element={
+            <Suspense fallback={null}>
+              <ArTechTestPage />
+            </Suspense>
+          }
+        />
+      )}
+
+      {/* AR 정식 라우트 — 인트로 · 게임 · 도감 · 보상 · 폴백 */}
       <Route
-        path="/ar-tech-test"
+        path="/ar"
         element={
           <Suspense fallback={null}>
-            <ArTechTestPage />
+            <ArIntroPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/ar/play"
+        element={
+          <Suspense fallback={null}>
+            <ArPlayPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/ar/collection"
+        element={
+          <Suspense fallback={null}>
+            <ArCollectionPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/ar/rewards"
+        element={
+          <Suspense fallback={null}>
+            <ArRewardsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/ar/fallback"
+        element={
+          <Suspense fallback={null}>
+            <ArFallbackPage />
           </Suspense>
         }
       />

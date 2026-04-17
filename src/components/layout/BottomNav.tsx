@@ -8,8 +8,7 @@ const NAV_ITEMS = [
   { label: '강릉봄푸드페스타', path: '/program/gnfesta', icon: CalendarDays, dimmed: false },
   { label: '푸드부스', path: '/program/food', icon: Sparkles, dimmed: !isDevMode },
   { label: '스탬프 랠리', path: '/stamp-rally', icon: Stamp, dimmed: false },
-  // Phase 0 — 임시: 탐험 슬롯 → /ar-tech-test 직결. Phase 1 에서 /ar 정식 라우트로 교체 예정.
-  { label: '탐험', path: '/ar-tech-test', icon: Compass, dimmed: false },
+  { label: '탐험', path: '/ar', icon: Compass, dimmed: false },
 ]
 
 export default function BottomNav() {

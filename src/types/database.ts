@@ -819,6 +819,327 @@ export interface Database {
         }
         Relationships: []
       }
+      ar_games: {
+        Row: {
+          id: number
+          name: string
+          theme_config: Json
+          start_at: string | null
+          end_at: string | null
+          status: 'draft' | 'scheduled' | 'active' | 'ended'
+          reward_config: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          name?: string
+          theme_config?: Json
+          start_at?: string | null
+          end_at?: string | null
+          status?: 'draft' | 'scheduled' | 'active' | 'ended'
+          reward_config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          name?: string
+          theme_config?: Json
+          start_at?: string | null
+          end_at?: string | null
+          status?: 'draft' | 'scheduled' | 'active' | 'ended'
+          reward_config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ar_zones: {
+        Row: {
+          id: string
+          name: string
+          center_lat: number
+          center_lng: number
+          radius_m: number
+          spawn_weight: number
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          center_lat: number
+          center_lng: number
+          radius_m: number
+          spawn_weight?: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          center_lat?: number
+          center_lng?: number
+          radius_m?: number
+          spawn_weight?: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ar_creatures: {
+        Row: {
+          id: string
+          name: string
+          rarity: 'common' | 'rare' | 'legendary'
+          model_url: string | null
+          thumbnail_url: string | null
+          spawn_rate: number
+          unlock_condition: Json | null
+          active: boolean
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          rarity: 'common' | 'rare' | 'legendary'
+          model_url?: string | null
+          thumbnail_url?: string | null
+          spawn_rate?: number
+          unlock_condition?: Json | null
+          active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          rarity?: 'common' | 'rare' | 'legendary'
+          model_url?: string | null
+          thumbnail_url?: string | null
+          spawn_rate?: number
+          unlock_condition?: Json | null
+          active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ar_spawn_tokens: {
+        Row: {
+          token: string
+          phone: string
+          creature_id: string
+          zone_id: string
+          issued_at: string
+          expires_at: string
+          consumed_at: string | null
+        }
+        Insert: {
+          token: string
+          phone: string
+          creature_id: string
+          zone_id: string
+          issued_at?: string
+          expires_at: string
+          consumed_at?: string | null
+        }
+        Update: {
+          token?: string
+          phone?: string
+          creature_id?: string
+          zone_id?: string
+          issued_at?: string
+          expires_at?: string
+          consumed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ar_spawn_tokens_creature_id_fkey'
+            columns: ['creature_id']
+            isOneToOne: false
+            referencedRelation: 'ar_creatures'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ar_spawn_tokens_zone_id_fkey'
+            columns: ['zone_id']
+            isOneToOne: false
+            referencedRelation: 'ar_zones'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      ar_captures: {
+        Row: {
+          id: number
+          phone: string
+          creature_id: string
+          zone_id: string | null
+          captured_at: string
+          client_lat: number | null
+          client_lng: number | null
+          server_verified_at: string
+        }
+        Insert: {
+          id?: number
+          phone: string
+          creature_id: string
+          zone_id?: string | null
+          captured_at?: string
+          client_lat?: number | null
+          client_lng?: number | null
+          server_verified_at?: string
+        }
+        Update: {
+          id?: number
+          phone?: string
+          creature_id?: string
+          zone_id?: string | null
+          captured_at?: string
+          client_lat?: number | null
+          client_lng?: number | null
+          server_verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ar_captures_creature_id_fkey'
+            columns: ['creature_id']
+            isOneToOne: false
+            referencedRelation: 'ar_creatures'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ar_captures_zone_id_fkey'
+            columns: ['zone_id']
+            isOneToOne: false
+            referencedRelation: 'ar_zones'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      ar_capture_attempts: {
+        Row: {
+          id: number
+          phone: string
+          creature_id: string | null
+          zone_id: string | null
+          attempted_at: string
+          result: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
+          client_lat: number | null
+          client_lng: number | null
+          detail: Json | null
+        }
+        Insert: {
+          id?: number
+          phone: string
+          creature_id?: string | null
+          zone_id?: string | null
+          attempted_at?: string
+          result: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
+          client_lat?: number | null
+          client_lng?: number | null
+          detail?: Json | null
+        }
+        Update: {
+          id?: number
+          phone?: string
+          creature_id?: string | null
+          zone_id?: string | null
+          attempted_at?: string
+          result?: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
+          client_lat?: number | null
+          client_lng?: number | null
+          detail?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ar_capture_attempts_creature_id_fkey'
+            columns: ['creature_id']
+            isOneToOne: false
+            referencedRelation: 'ar_creatures'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ar_capture_attempts_zone_id_fkey'
+            columns: ['zone_id']
+            isOneToOne: false
+            referencedRelation: 'ar_zones'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      ar_rewards: {
+        Row: {
+          id: string
+          phone: string
+          code: string
+          reward_type: 'voucher' | 'prize_claim_trigger'
+          amount: number | null
+          triggered_by: string
+          issued_at: string
+          redeemed_at: string | null
+          status: 'active' | 'used' | 'expired'
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          phone: string
+          code: string
+          reward_type: 'voucher' | 'prize_claim_trigger'
+          amount?: number | null
+          triggered_by: string
+          issued_at?: string
+          redeemed_at?: string | null
+          status?: 'active' | 'used' | 'expired'
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          phone?: string
+          code?: string
+          reward_type?: 'voucher' | 'prize_claim_trigger'
+          amount?: number | null
+          triggered_by?: string
+          issued_at?: string
+          redeemed_at?: string | null
+          status?: 'active' | 'used' | 'expired'
+          expires_at?: string | null
+        }
+        Relationships: []
+      }
+      ar_prize_claims: {
+        Row: {
+          id: number
+          phone: string
+          claimed_at: string
+          reward_type: string | null
+          notes: string | null
+        }
+        Insert: {
+          id?: number
+          phone: string
+          claimed_at?: string
+          reward_type?: string | null
+          notes?: string | null
+        }
+        Update: {
+          id?: number
+          phone?: string
+          claimed_at?: string
+          reward_type?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       booth_waiting_counts: {
@@ -840,6 +1161,31 @@ export interface Database {
     Functions: {
       decrement_menu_stock: {
         Args: { p_menu_id: string; p_qty: number }
+        Returns: number
+      }
+      capture_creature: {
+        Args: {
+          p_token: string
+          p_phone: string
+          p_client_lat: number
+          p_client_lng: number
+        }
+        Returns: Json
+      }
+      claim_ar_prize: {
+        Args: { p_phone: string }
+        Returns: Json
+      }
+      issue_spawn_token: {
+        Args: { p_phone: string; p_creature_id: string; p_zone_id: string }
+        Returns: string
+      }
+      generate_ar_reward_code: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      haversine_km: {
+        Args: { lat1: number; lng1: number; lat2: number; lng2: number }
         Returns: number
       }
     }
@@ -870,3 +1216,15 @@ export type OrderItemInsert = Database['public']['Tables']['order_items']['Inser
 export type BoothAccount = Database['public']['Tables']['booth_accounts']['Row']
 export type BoothAccountInsert = Database['public']['Tables']['booth_accounts']['Insert']
 export type StampPrizeClaim = Database['public']['Tables']['stamp_prize_claims']['Row']
+
+// AR 모듈 (Phase 1 추가)
+export type ArGame = Database['public']['Tables']['ar_games']['Row']
+export type ArZone = Database['public']['Tables']['ar_zones']['Row']
+export type ArZoneInsert = Database['public']['Tables']['ar_zones']['Insert']
+export type ArCreature = Database['public']['Tables']['ar_creatures']['Row']
+export type ArCreatureInsert = Database['public']['Tables']['ar_creatures']['Insert']
+export type ArSpawnToken = Database['public']['Tables']['ar_spawn_tokens']['Row']
+export type ArCapture = Database['public']['Tables']['ar_captures']['Row']
+export type ArCaptureAttempt = Database['public']['Tables']['ar_capture_attempts']['Row']
+export type ArReward = Database['public']['Tables']['ar_rewards']['Row']
+export type ArPrizeClaim = Database['public']['Tables']['ar_prize_claims']['Row']
