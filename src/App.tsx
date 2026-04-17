@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from '@/components/layout/Layout'
 import AdminLayout from '@/components/admin/AdminLayout'
@@ -35,6 +36,12 @@ import BoothDashboardPage from '@/pages/booth/BoothDashboardPage'
 import FloatingInstallButton from '@/components/pwa/FloatingInstallButton'
 import { CartProvider } from '@/store/cartStore'
 import { ToastProvider } from '@/components/ui/Toast'
+
+// Phase 0 — AR 기술 검증 페이지 (URL 은폐 기반, dynamic import)
+// 내부 팀만 URL(/ar-tech-test)을 아는 전제로 프로덕션에도 포함.
+// Lazy import 라 방문 시에만 Three.js 청크 다운로드 — 일반 페이지 영향 없음.
+// Phase 1 이후 정식 AR 라우트 생기면 이 페이지는 제거.
+const ArTechTestPage = lazy(() => import('@/features/ar/pages/TechTestPage'))
 
 /**
  * Hostname 기반 앱 모드 분기.
@@ -99,6 +106,15 @@ function CustomerRoutes() {
     <Routes>
       {/* Home (standalone: hero + footer) */}
       <Route path="/" element={<HomePage />} />
+
+      <Route
+        path="/ar-tech-test"
+        element={
+          <Suspense fallback={null}>
+            <ArTechTestPage />
+          </Suspense>
+        }
+      />
 
       {/* User */}
       <Route element={<Layout />}>
