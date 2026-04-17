@@ -4,10 +4,30 @@
 > 각 Phase 완료 시 갱신됩니다.
 
 - **프로젝트**: GNfesta AR 포획·수집 모듈 ("축제 탐험")
-- **현재 Phase**: 1 / 7
+- **현재 Phase**: 1 / 7 (✅ 완료 · Phase 2 프롬프트 대기)
 - **마지막 업데이트**: 2026-04-17
+- **최신 커밋**: `7c4472b feat(ar): Phase 1 — DB 스키마 + 방어 RPC + 라우팅 뼈대` (origin/main)
 - **기획 브리프**: `_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md` (v0.3)
 - **Phase 1 빌드 핸드오프**: `_DEV/Handoff/phase1_build.md`
+
+---
+
+## 🚨 다음 세션 시작 시 필독 순서
+
+Phase 2 를 이어서 진행하려면 아래 순서로만 읽어도 충분:
+
+1. **본 문서 `HANDOFF.md`** — Phase 상태·변경 파일·임계치 (지금 읽고 있는 이 문서)
+2. **`_DEV/Handoff/phase1_build.md`** — Phase 1 산출물 상세·RPC 임계치·수동 테스트 결과
+3. **`_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md`** (v0.3) — §4 기술 정의, §7 번들·캐싱, §8 진입 플로우
+
+부가 참고 (필요할 때만):
+- `_DEV/reference/gnfesta_app_summary.md` — GNfesta 앱 전반 컨벤션 (AR 모듈 포함)
+- `_DEV/Handoff/페이즈0_빌드.md` — Phase 0 결정·실기 검증
+- `_DEV/Handoff/archive/PHASE_{0,1}_PROMPT.md` — 완료된 프롬프트 아카이브
+- `docs/ar-module/integration-plan.md` — 통합 설계 (폴더 구조·API 방식)
+- `supabase/README.md` — 마이그 적용 방법 (Studio SQL Editor 수동)
+
+Phase 2 작업 시작 전 **Phase 2 프롬프트 수신 필수**. 프롬프트 없이 Phase 2 작업 진행 금지.
 
 ---
 
