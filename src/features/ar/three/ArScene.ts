@@ -56,6 +56,9 @@ export class ArScene {
   private frameCount = 0
   private lastFpsStamp = 0
 
+  private readonly raycaster = new THREE.Raycaster()
+  private readonly ndcVec = new THREE.Vector2()
+
   private readonly handleResize = () => this.resize()
 
   constructor(options: ArSceneOptions) {
@@ -200,6 +203,26 @@ export class ArScene {
 
   get creatureCount(): number {
     return this.creatures.size
+  }
+
+  /**
+   * NDC 좌표(-1~1, y 상향 양수) 로 raycast 하여 가장 가까운 creature id 반환.
+   * 없으면 null. CreatureLoader 가 반환한 root 전체 하위 메쉬를 순회한다.
+   */
+  pickCreatureAt(ndc: { x: number; y: number }): string | null {
+    if (this.disposed || !this.camera || this.creatures.size === 0) return null
+    this.ndcVec.set(ndc.x, ndc.y)
+    this.raycaster.setFromCamera(this.ndcVec, this.camera)
+    let bestId: string | null = null
+    let bestDist = Infinity
+    for (const c of this.creatures.values()) {
+      const hits = this.raycaster.intersectObject(c.root, true)
+      if (hits.length > 0 && hits[0].distance < bestDist) {
+        bestDist = hits[0].distance
+        bestId = c.id
+      }
+    }
+    return bestId
   }
 
   private resize(): void {
