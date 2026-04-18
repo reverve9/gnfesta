@@ -53,8 +53,9 @@ const ArFallbackPage = lazy(() => import('@/features/ar/pages/FallbackPage'))
 
 // Phase 0 — AR 기술 검증 페이지. Phase 2 에서 isDevMode 가드로 전환.
 // - 로컬 dev + gnfesta-dev 배포에서 접근 가능, 프로덕션 배포는 VITE_DEV_MODE 미설정으로 차단
-// - 삼항 내부에서만 lazy 생성하여, 프로덕션 빌드 시 TechTestPage·TestScene 청크가 번들에서 제거됨
-const ArTechTestPage = isDevMode
+// - 가드를 inline 으로 작성해 Vite 의 define 치환 → Rolldown DCE 가 orphan chunk 까지 제거하도록 유도
+//   (`isDevMode` 변수 경유 시 Rolldown 이 import() 를 별도 청크로 먼저 확정하여 DCE 후에도 잔존)
+const ArTechTestPage = import.meta.env.VITE_DEV_MODE === 'true'
   ? lazy(() => import('@/features/ar/pages/TechTestPage'))
   : null
 
