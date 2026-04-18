@@ -4,22 +4,24 @@
 > 각 Phase 완료 시 갱신됩니다.
 
 - **프로젝트**: GNfesta AR 포획·수집 모듈 ("축제 탐험")
-- **현재 Phase**: 2 / 7 (🔄 진행 중 — E+F 완료, G(실기 검증) 남음)
+- **현재 Phase**: 2 / 7 (🔄 A~F 코드 완료 · 실기 검증 대기)
 - **마지막 업데이트**: 2026-04-18
-- **최신 커밋**: `2568343 feat(ar): Phase 2-C+D — 라이프사이클 훅 2종 + 폴백 레벨 감지` (+ Phase 2-E/F 커밋 예정)
+- **최신 커밋**: `98a0b8e feat(ar): Phase 2-E+F — /ar/play End-to-End + DEV 진단 패널`
 - **기획 브리프**: `_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md` (v0.3)
 - **Phase 1 빌드 핸드오프**: `_DEV/Handoff/phase1_build.md`
-- **Phase 2-E/F 체크포인트**: `_DEV/Handoff/phase2_ef_checkpoint.md` ⚠ **다음 세션 첫 진입 시 이 문서부터**
+- **Phase 2 빌드 핸드오프**: `_DEV/Handoff/phase2_build.md` ⚠ **다음 세션 첫 진입 시 이 문서부터**
+- **Phase 2-E/F 세부 체크포인트**: `_DEV/Handoff/phase2_ef_checkpoint.md` (phase2_build.md 의 서브셋)
 
 ---
 
 ## 🚨 다음 세션 시작 시 필독 순서
 
-Phase 2 를 이어서 진행하려면 아래 순서로만 읽어도 충분:
+Phase 3 를 이어서 진행하거나 Phase 2 실기 검증을 마무리 하려면 아래 순서로만 읽어도 충분:
 
 1. **본 문서 `HANDOFF.md`** — Phase 상태·변경 파일·임계치 (지금 읽고 있는 이 문서)
-2. **`_DEV/Handoff/phase1_build.md`** — Phase 1 산출물 상세·RPC 임계치·수동 테스트 결과
-3. **`_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md`** (v0.3) — §4 기술 정의, §7 번들·캐싱, §8 진입 플로우
+2. **`_DEV/Handoff/phase2_build.md`** — Phase 2 확정 결정·산출물 A~F·기술 부채·실기 검증 체크리스트
+3. **`_DEV/Handoff/phase1_build.md`** — Phase 1 산출물 상세·RPC 임계치·수동 테스트 결과
+4. **`_DEV/Handoff/AR_MODULE_PROJECT_BRIEF.md`** (v0.3) — §4 기술 정의, §7 번들·캐싱, §8 진입 플로우
 
 부가 참고 (필요할 때만):
 - `_DEV/reference/gnfesta_app_summary.md` — GNfesta 앱 전반 컨벤션 (AR 모듈 포함)
@@ -28,7 +30,7 @@ Phase 2 를 이어서 진행하려면 아래 순서로만 읽어도 충분:
 - `docs/ar-module/integration-plan.md` — 통합 설계 (폴더 구조·API 방식)
 - `supabase/README.md` — 마이그 적용 방법 (Studio SQL Editor 수동)
 
-Phase 2 작업 시작 전 **Phase 2 프롬프트 수신 필수**. 프롬프트 없이 Phase 2 작업 진행 금지.
+Phase 3 작업 시작 전 **Phase 3 프롬프트 수신 필수**. 프롬프트 없이 Phase 3 작업 진행 금지.
 
 ---
 
