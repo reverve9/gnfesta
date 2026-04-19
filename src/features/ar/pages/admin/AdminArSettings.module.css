@@ -1,125 +1,155 @@
-.page {
-  padding: var(--space-8) var(--space-6);
+/* ============================================================================
+ * AdminArSettings.module.css
+ * AR 축제 설정 — 기존 어드민 폼 패턴(AdminContentDetail) 토큰 일관성 준수
+ * ============================================================================ */
+
+/* ─────────────── 상단 헤더 ─────────────── */
+.header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  max-width: 720px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
 
 .title {
-  font-size: var(--text-xl);
+  font-size: 24px;
   font-weight: 700;
-  margin: 0;
-  color: var(--color-text, inherit);
+  color: #111827;
 }
 
-.note {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted, #666);
-  margin: 0;
-  line-height: 1.5;
+.empty {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 64px;
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 14px;
 }
 
+/* ─────────────── 섹션 ─────────────── */
 .section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border, #e5e5e5);
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-surface, #fff);
+  margin-bottom: 32px;
+}
+
+.sectionHeader {
+  margin-bottom: 16px;
 }
 
 .sectionTitle {
-  font-size: var(--text-base);
+  font-size: 16px;
   font-weight: 700;
-  margin: 0;
-  color: var(--color-text, inherit);
+  color: #111827;
+  margin: 0 0 4px;
 }
 
-.field {
+.sectionSub {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0;
+}
+
+/* ─────────────── 카드 ─────────────── */
+.card {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cardBody {
+  padding: 24px;
+}
+
+/* ─────────────── 폼 ─────────────── */
+.formSection {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.label {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text, inherit);
-}
-
-.hint {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted, #888);
-}
-
-.input {
-  padding: 8px 10px;
-  border: 1px solid var(--color-border, #d1d5db);
-  border-radius: 6px;
-  font-size: var(--text-sm);
-  font-family: inherit;
-  background: #fff;
-  color: var(--color-text, inherit);
-}
-
-.input:focus {
-  outline: 2px solid var(--color-primary, #3b82f6);
-  outline-offset: -1px;
+  gap: 16px;
 }
 
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  gap: 16px;
 }
 
 .rowTriple {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-3);
+  gap: 16px;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111827;
+  background-color: #FFFFFF;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.hintMuted {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 400;
+  margin: 0;
+}
+
+.hintWarn {
+  font-size: 11px;
+  color: #DC2626;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ─────────────── 액션 ─────────────── */
 .actions {
   display: flex;
-  gap: var(--space-3);
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.saveBtn {
+  display: inline-flex;
   align-items: center;
-}
-
-.submitBtn {
-  padding: 10px 20px;
+  gap: 6px;
+  padding: 10px 24px;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
   border: none;
-  border-radius: 6px;
-  background: var(--color-primary, #3b82f6);
-  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
-  font-size: var(--text-sm);
   cursor: pointer;
+  transition: background-color 150ms ease;
 }
 
-.submitBtn:hover:not(:disabled) {
-  filter: brightness(1.08);
+.saveBtn:hover:not(:disabled) {
+  background-color: #2CA34C;
 }
 
-.submitBtn:disabled {
-  opacity: 0.5;
+.saveBtn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
-}
-
-.status {
-  font-size: var(--text-sm);
-}
-
-.statusOk {
-  color: #16a34a;
-}
-
-.statusErr {
-  color: #dc2626;
-}
-
-.warning {
-  font-size: var(--text-xs);
-  color: #dc2626;
 }
