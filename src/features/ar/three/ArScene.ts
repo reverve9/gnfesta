@@ -218,6 +218,18 @@ export class ArScene {
     this.creatures.delete(id)
   }
 
+  /**
+   * id 에 해당하는 creature 의 root 가시성 토글. dispose 없이 scene graph 유지.
+   * Phase 3 zone leave 시 비가시 처리, Phase 4 포획 직후 피드백 등에 재활용.
+   * 존재하지 않는 id 또는 disposed 상태면 no-op.
+   */
+  setCreatureVisible(id: string, visible: boolean): void {
+    if (this.disposed) return
+    const c = this.creatures.get(id)
+    if (!c) return
+    c.root.visible = visible
+  }
+
   clearCreatures(): void {
     const ids = Array.from(this.creatures.keys())
     ids.forEach(id => this.despawnCreature(id))

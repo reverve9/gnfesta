@@ -40,6 +40,14 @@ export interface DevDiagnosticPanelProps {
   cameraResolution: { width: number; height: number } | null
   /** 에러 로그. 화면 하단에 최근 1건만 노출. */
   lastError?: string | null
+  // --- Phase 3 추가 ---
+  gpsPermission?: PermissionState
+  gpsPosition?: { lat: number; lng: number; accuracy: number } | null
+  currentZoneId?: string | null
+  activeToken?: string | null
+  /** spawn token 만료 시각 (ms epoch). 남은 초 카운트다운 표시용. */
+  activeTokenExpiresAt?: number | null
+  lastPollingAt?: number | null
 }
 
 function formatMemoryMB(): string {
@@ -61,6 +69,7 @@ function formatCapturedAt(ts: number | null): string {
 export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const [open, setOpen] = useState(true)
   const [memoryText, setMemoryText] = useState<string>('—')
+  const [tokenCountdown, setTokenCountdown] = useState<string>('—')
 
   // 메모리는 1초 단위 재측정. rAF 루프 안에 넣지 않아 본 씬 성능 영향 최소.
   useEffect(() => {
@@ -70,6 +79,23 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     const id = setInterval(update, 1000)
     return () => clearInterval(id)
   }, [])
+
+  // spawn token 만료 카운트다운 — 1초 단위 갱신. activeTokenExpiresAt 이 없거나 과거면 '—'.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const tick = () => {
+      const exp = props.activeTokenExpiresAt
+      if (!exp) {
+        setTokenCountdown('—')
+        return
+      }
+      const remaining = Math.max(0, Math.round((exp - Date.now()) / 1000))
+      setTokenCountdown(`${remaining}s`)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [props.activeTokenExpiresAt])
 
   // 프로덕션에서 이 컴포넌트가 어떤 이유로든 렌더되면 즉시 null 반환.
   // dynamic import 가드가 실패해도 UI 유출 방지.
@@ -129,6 +155,33 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
           {props.cameraResolution
             ? `${props.cameraResolution.width}×${props.cameraResolution.height}`
             : '—'}
+        </dd>
+
+        <dt className={styles.key}>GPS</dt>
+        <dd className={styles.val}>
+          {props.gpsPermission ?? '—'}
+          {props.gpsPosition
+            ? ` · ${props.gpsPosition.lat.toFixed(5)}, ${props.gpsPosition.lng.toFixed(5)} ±${Math.round(props.gpsPosition.accuracy)}m`
+            : ''}
+        </dd>
+
+        <dt className={styles.key}>Zone</dt>
+        <dd className={styles.val}>
+          {props.currentZoneId
+            ? props.currentZoneId.slice(0, 8) + '…'
+            : '—'}
+        </dd>
+
+        <dt className={styles.key}>Token</dt>
+        <dd className={styles.val}>
+          {props.activeToken
+            ? `${props.activeToken.slice(0, 8)}… (${tokenCountdown})`
+            : '—'}
+        </dd>
+
+        <dt className={styles.key}>Polled@</dt>
+        <dd className={styles.val}>
+          {formatCapturedAt(props.lastPollingAt ?? null)}
         </dd>
 
         {props.lastError && (

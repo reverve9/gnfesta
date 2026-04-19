@@ -1,20 +1,34 @@
 /**
- * /ar/play — Phase 2-E / 2-F 실구현.
+ * /ar/play — Phase 3 실구현 (Phase 2 더미 스폰 철거 · 서버 스폰 + GPS + 미니맵 통합).
  *
  * 플로우:
- *   Mount → detectInitialFallbackLevel
- *     ├─ L4 → /ar/fallback 즉시 redirect
- *     └─ L1~L3 가능 → 인트로 표시 ("시작" 버튼)
- *   [사용자 터치] 시작 버튼 → 자이로 권한 → 카메라 권한 (iOS gesture chain 유지 순서)
- *     ├─ 카메라 denied/unsupported → L4 redirect
- *     └─ granted → video 연결 + ArScene or FallbackRenderer 부트
- *   스폰 버튼 → rarity 필터 → CreatureLoader.load → ArScene.spawnCreature + state push
- *   canvas pointerdown → ArScene.pickCreatureAt → 해당 SpawnedCreature.captured=true 토글 + 토스트
+ *   Mount → detectInitialFallbackLevel (Phase 2 유지)
+ *     ├─ L4 → /ar/fallback redirect
+ *     └─ phone 없음 → 인트로에서 "스탬프 랠리에서 전화번호 입력" 안내 (시작 disabled)
+ *   "시작" 버튼 onClick (iOS gesture chain: gyro → camera → gps 순)
+ *     ├─ camera denied → /ar/fallback
+ *     ├─ gps denied → started=true 하되 미니맵·spawn 비활성 (UX: 설정 안내)
+ *     └─ 모두 OK → started=true
+ *   권한 획득 후:
+ *     → GET /api/ar/zones — active 구역 목록 1회 로드
+ *     → useGpsPosition.start() — watchPosition 지속 추적
+ *     → useZoneDetection 가 enter/leave 이벤트 발화
+ *     → MiniMap 렌더 (vanilla Leaflet, lazy import)
+ *   zone enter:
+ *     → postArSpawn → CreatureLoader.load → ArScene.spawnCreature → activeSpawn state
+ *   zone leave:
+ *     → ArScene.setCreatureVisible(id, false) + activeSpawn state 유지 (zone 재진입 시 재활용)
+ *   30초 폴링 백업:
+ *     → currentZoneId 존재 + activeSpawn 없거나 만료면 postArSpawn 재시도
+ *     → 서버가 기존 토큰 재사용(reused:true) 로 응답하면 동일 creature 렌더
+ *   캔버스 탭:
+ *     → pickCreatureAt → 로컬 captured=true (Phase 2 로직 유지)
+ *     → 실제 /api/ar/capture 호출은 Phase 4
  *
- * 제약 (Phase 2 범위):
- *  - **서버 통신 일체 없음**: /api/ar/*, capture_creature RPC, issue_spawn_token 미호출.
- *  - 전부 로컬 state 반영만. 서버 동기화는 Phase 3 이후.
- *  - 더미 스폰 = rarity 선택 기반 로컬 randomization (PLACEHOLDER_CREATURES).
+ * Phase 2 회귀 보호:
+ *   - ArScene / CreatureLoader / GyroController / CameraStream 수정 안 함.
+ *   - ArScene.setCreatureVisible 만 신규 호출 (Phase 3 에서 허용된 단일 추가).
+ *   - 자이로 이슈·기술 부채 #1 무관.
  */
 
 import {
@@ -28,11 +42,14 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import * as THREE from 'three'
 import { ArScene } from '../three/ArScene'
 import { CreatureLoader } from '../three/CreatureLoader'
 import { FallbackRenderer } from '../three/FallbackRenderer'
 import { useArPermissions } from '../hooks/useArPermissions'
 import { useArSceneLifecycle } from '../hooks/useArSceneLifecycle'
+import { useGpsPosition } from '../hooks/useGpsPosition'
+import { useZoneDetection } from '../hooks/useZoneDetection'
 import {
   detectFallbackLevel,
   detectInitialFallbackLevel,
@@ -43,46 +60,38 @@ import {
   type GyroPermissionInput,
 } from '../lib/detectFallbackLevel'
 import type { PermissionState } from '../hooks/useArPermissions'
-import {
-  PLACEHOLDER_CREATURES,
-  pickPlaceholderByRarity,
-  resolveCreatureModelUrl,
-  type ArRarity,
-  type PlaceholderCreature,
-} from '../lib/assets'
+import { resolveCreatureModelUrl } from '../lib/assets'
+import type { ArRarity } from '../lib/assets'
+import { getArZones, postArSpawn, type ArZoneDto } from '../lib/api'
+import { loadLastPhone } from '../../../lib/phone'
 import styles from './PlayPage.module.css'
-import * as THREE from 'three'
 
 // DEV 패널은 프로덕션 번들에서 제외되도록 lazy + import.meta.env.DEV 가드.
 const DevDiagnosticPanel = import.meta.env.DEV
   ? lazy(() => import('../components/DevDiagnosticPanel'))
   : null
 
-interface SpawnedCreature {
+// MiniMap 은 Leaflet 번들을 포함하므로 lazy 로 PlayPage 메인 청크 분리.
+const MiniMap = lazy(() => import('../components/MiniMap'))
+
+interface ActiveSpawn {
+  /** 서버 발급 token. Phase 4 포획 API 에서 사용. */
+  token: string
+  /** ArScene 내부 Map key. 동일 token → 동일 instanceId 유지 (재방문 시 재사용). */
   instanceId: string
-  creatureDefId: string
-  name: string
+  creatureId: string
+  creatureName: string
   rarity: ArRarity
-  spawnedAt: number
+  modelUrl: string
+  /** ms epoch. 만료 시 자동 정리. */
+  expiresAt: number
+  zoneId: string
   captured: boolean
-}
-
-const RARITY_OPTIONS: { value: ArRarity; label: string; className: string }[] = [
-  { value: 'common', label: '일반', className: 'segmentCommon' },
-  { value: 'rare', label: '희귀', className: 'segmentRare' },
-  { value: 'legendary', label: '전설', className: 'segmentLegendary' },
-]
-
-function randomSpawnPosition(): THREE.Vector3 {
-  // 카메라 정면 (z=0 기준) 주변에 랜덤. 화면에 충분히 잡히도록 범위 제한.
-  const x = (Math.random() - 0.5) * 2.2
-  const y = (Math.random() - 0.5) * 1.2
-  const z = -2 + Math.random() * 0.8
-  return new THREE.Vector3(x, y, z)
+  /** zone leave 시 false, 재enter + 동일 token 시 true 로 복원. */
+  visible: boolean
 }
 
 function toCameraInput(s: PermissionState): CameraPermissionInput {
-  // 카메라는 'not-required' 가 발생하지 않으나(항상 권한 필요), 타입 폭을 좁혀 매핑.
   if (s === 'not-required') return 'idle'
   return s
 }
@@ -91,25 +100,43 @@ function toGyroInput(s: PermissionState): GyroPermissionInput {
   return s
 }
 
-function scaleForCreature(id: string): number {
-  // 플레이스홀더 모델 크기 격차 보정. Fox 는 원본이 매우 커서 축소 필요.
-  if (id === 'placeholder-fox') return 0.01
-  if (id === 'placeholder-cesium-man') return 0.8
+function randomSpawnOffset(): THREE.Vector3 {
+  // 카메라 정면 (z=-2 기준) 주변에 랜덤 배치. Phase 2 와 동일 범위.
+  const x = (Math.random() - 0.5) * 2.2
+  const y = (Math.random() - 0.5) * 1.2
+  const z = -2 + Math.random() * 0.8
+  return new THREE.Vector3(x, y, z)
+}
+
+function scaleForModelUrl(url: string): number {
+  // Phase 2 플레이스홀더 모델 크기 보정. 실 에셋 전까지 하드코딩 유지 (Phase 5 정리).
+  if (url.includes('Fox')) return 0.01
+  if (url.includes('CesiumMan')) return 0.8
   return 1
 }
+
+const POLLING_INTERVAL_MS = 30_000
 
 export default function PlayPage() {
   const navigate = useNavigate()
   const permissionsApi = useArPermissions()
-  const { permissions, requestCamera, requestGyro, cameraStreamRef, gyroControllerRef } =
-    permissionsApi
+  const {
+    permissions,
+    requestCamera,
+    requestGyro,
+    requestGps,
+    cameraStreamRef,
+    gyroControllerRef,
+  } = permissionsApi
 
   const [started, setStarted] = useState(false)
   const [booting, setBooting] = useState(false)
   const [level, setLevel] = useState<FallbackLevel>(1)
   const [webglSupported, setWebglSupported] = useState<boolean>(true)
-  const [spawned, setSpawned] = useState<SpawnedCreature[]>([])
-  const [selectedRarity, setSelectedRarity] = useState<ArRarity>('common')
+  const [phone, setPhone] = useState<string>('')
+  const [zones, setZones] = useState<ArZoneDto[]>([])
+  const [zonesError, setZonesError] = useState<string | null>(null)
+  const [activeSpawn, setActiveSpawn] = useState<ActiveSpawn | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [fps, setFps] = useState<number>(0)
   const [cameraResolution, setCameraResolution] = useState<{
@@ -117,6 +144,7 @@ export default function PlayPage() {
     height: number
   } | null>(null)
   const [lastCapturedAt, setLastCapturedAt] = useState<number | null>(null)
+  const [lastPollingAt, setLastPollingAt] = useState<number | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -125,8 +153,29 @@ export default function PlayPage() {
   const fallbackRendererRef = useRef<FallbackRenderer | null>(null)
   const creatureLoaderRef = useRef<CreatureLoader | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const tokenExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // activeSpawn 을 effect/콜백에서 최신값으로 참조하기 위한 ref (state 업데이트 후 재호출 없이).
+  const activeSpawnRef = useRef<ActiveSpawn | null>(null)
+  activeSpawnRef.current = activeSpawn
 
-  // 초기 Level 4 감지 (iOS 16.4 미만 / getUserMedia 미지원)
+  const gps = useGpsPosition({ enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 })
+  const zoneDetection = useZoneDetection(
+    useMemo(
+      () =>
+        zones.map(z => ({
+          id: z.id,
+          center_lat: z.center_lat,
+          center_lng: z.center_lng,
+          radius_m: z.radius_m,
+        })),
+      [zones],
+    ),
+    gps.position,
+  )
+  const currentZoneId = zoneDetection.result.currentZoneId
+
+  // Mount: 초기 Level 4 감지 + phone 자동 로드.
   useEffect(() => {
     const initial = detectInitialFallbackLevel()
     if (initial === 4) {
@@ -134,9 +183,11 @@ export default function PlayPage() {
       return
     }
     setWebglSupported(detectWebGLSupport())
+    const saved = loadLastPhone()
+    if (saved) setPhone(saved)
   }, [navigate])
 
-  // 권한 상태 변화에 따른 level 재평가
+  // 권한·WebGL·FPS 변화에 따른 level 재평가 (Phase 2 와 동일 로직. GPS 는 level 에 영향 없음).
   useEffect(() => {
     if (!started) return
     const next = detectFallbackLevel({
@@ -151,7 +202,6 @@ export default function PlayPage() {
     }
   }, [started, permissions.camera, permissions.gyro, webglSupported, fps, navigate])
 
-  // 라이프사이클 훅 (Visibility → pause/resume, unmount → dispose)
   useArSceneLifecycle({
     sceneRef,
     cameraStreamRef,
@@ -167,16 +217,21 @@ export default function PlayPage() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
+      if (tokenExpiryTimerRef.current) clearTimeout(tokenExpiryTimerRef.current)
     }
   }, [])
 
-  // "시작" 버튼 — 사용자 터치 gesture chain 안에서 권한 요청 → 스트림 → 씬 부트
+  // "시작" 버튼 — iOS gesture chain: gyro → camera → gps
   const handleStart = useCallback(async () => {
     if (booting || started) return
+    if (!phone) {
+      setLastError('전화번호가 필요합니다')
+      return
+    }
     setBooting(true)
     setLastError(null)
     try {
-      // iOS 에서 자이로는 터치 직후 gesture chain 이 필요하므로 먼저 요청.
       await requestGyro()
       const { state: camState, result: camResult } = await requestCamera()
       if (camState !== 'granted' || !camResult || camResult.status !== 'granted') {
@@ -192,15 +247,17 @@ export default function PlayPage() {
           height: camResult.settings.height,
         })
       }
+      // GPS — 거부돼도 진입은 허용 (카메라·자이로 는 정상 동작). spawn 만 비활성.
+      await requestGps()
       setStarted(true)
     } catch (e) {
       setLastError(e instanceof Error ? e.message : String(e))
     } finally {
       setBooting(false)
     }
-  }, [booting, started, requestCamera, requestGyro, navigate])
+  }, [booting, started, phone, requestCamera, requestGyro, requestGps, navigate])
 
-  // video element 에 스트림 연결 (started 후 렌더된 video ref 로 effect 에서 처리)
+  // video 스트림 연결 (Phase 2 동일)
   useEffect(() => {
     if (!started) return
     const video = videoRef.current
@@ -211,13 +268,13 @@ export default function PlayPage() {
     })
   }, [started, cameraStreamRef])
 
-  // 씬 부트 — level 에 따라 ArScene 또는 FallbackRenderer 선택
+  // 씬 부트 (Phase 2 동일. ArScene 구조 건드리지 않음)
   useEffect(() => {
     if (!started) return
     if (permissions.camera !== 'granted') return
     const canvas = canvasRef.current
     if (!canvas) return
-    if (sceneRef.current || fallbackRendererRef.current) return // idempotent
+    if (sceneRef.current || fallbackRendererRef.current) return
 
     const kind = rendererForLevel(level)
     if (kind === 'redirect-fallback-route') return
@@ -252,48 +309,143 @@ export default function PlayPage() {
     }
   }, [started, permissions.camera, permissions.gyro, level, gyroControllerRef])
 
-  // 스폰 — 선택한 rarity 의 placeholder 하나 랜덤 pick → 로드 → 씬에 추가
-  const handleSpawn = useCallback(async () => {
-    const candidates = PLACEHOLDER_CREATURES.filter(c => c.rarity === selectedRarity)
-    const base: PlaceholderCreature | undefined =
-      candidates.length > 0
-        ? candidates[Math.floor(Math.random() * candidates.length)]
-        : pickPlaceholderByRarity(selectedRarity)
-    if (!base) {
-      setLastError(`rarity=${selectedRarity} 에 해당하는 플레이스홀더 없음`)
-      return
+  // GPS 활성화 + zone 목록 로드 (started 이후 1회)
+  useEffect(() => {
+    if (!started) return
+    if (permissions.gps === 'granted') {
+      gps.start()
     }
-    const instanceId = `inst-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-    const pos = randomSpawnPosition()
+    let cancelled = false
+    ;(async () => {
+      const res = await getArZones()
+      if (cancelled) return
+      if (res.error) {
+        setZonesError(res.error)
+        return
+      }
+      setZones(res.zones)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // gps.start 는 레퍼런스 변화에 재호출하지 않도록 deps 에서 제외.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, permissions.gps])
 
-    if (sceneRef.current) {
+  // 서버 스폰 처리 함수 — enter 이벤트 / 폴링 공용
+  const triggerSpawn = useCallback(
+    async (zoneId: string, reason: 'enter' | 'poll') => {
+      const scene = sceneRef.current
       const loader = creatureLoaderRef.current
-      if (!loader) return
-      const { root, animations } = await loader.load(resolveCreatureModelUrl(base))
-      const s = scaleForCreature(base.id)
-      root.scale.setScalar(s)
-      root.userData.creatureInstanceId = instanceId
-      sceneRef.current.spawnCreature(instanceId, root, animations, pos)
-    } else if (fallbackRendererRef.current) {
-      fallbackRendererRef.current.spawnSprite(instanceId, base.rarity)
-    } else {
-      return
+      if (!scene || !loader) return
+      if (!phone) return
+      const pos = gps.position
+      if (!pos) return
+
+      if (reason === 'poll') setLastPollingAt(Date.now())
+
+      const resp = await postArSpawn({
+        phone,
+        zoneId,
+        lat: pos.lat,
+        lng: pos.lng,
+      })
+      if (!resp.ok) {
+        setLastError(`spawn ${resp.result}${resp.message ? `: ${resp.message}` : ''}`)
+        return
+      }
+      const s = resp.spawn
+      const existing = activeSpawnRef.current
+
+      // 기존 활성 스폰이 이미 같은 token 이면 visible 만 복구.
+      if (existing && existing.token === s.token) {
+        scene.setCreatureVisible(existing.instanceId, true)
+        setActiveSpawn({ ...existing, visible: true, zoneId })
+        return
+      }
+
+      // 다른 token 이면 기존 인스턴스는 숨기고 새 creature 로드.
+      if (existing) {
+        scene.setCreatureVisible(existing.instanceId, false)
+      }
+
+      try {
+        const { root, animations } = await loader.load(
+          resolveCreatureModelUrl({ model_url: s.model_url }),
+        )
+        const scale = scaleForModelUrl(s.model_url)
+        root.scale.setScalar(scale)
+        const instanceId = `inst-${s.token.slice(0, 8)}-${Date.now()}`
+        root.userData.creatureInstanceId = instanceId
+        scene.spawnCreature(instanceId, root, animations, randomSpawnOffset())
+        const expiresAt = new Date(s.expires_at).getTime()
+        setActiveSpawn({
+          token: s.token,
+          instanceId,
+          creatureId: s.creature_id,
+          creatureName: s.creature_name,
+          rarity: s.creature_rarity,
+          modelUrl: s.model_url,
+          expiresAt,
+          zoneId,
+          captured: false,
+          visible: true,
+        })
+
+        // 토큰 만료 시 자동 정리
+        if (tokenExpiryTimerRef.current) clearTimeout(tokenExpiryTimerRef.current)
+        const ms = Math.max(0, expiresAt - Date.now())
+        tokenExpiryTimerRef.current = setTimeout(() => {
+          const current = activeSpawnRef.current
+          if (current && current.token === s.token) {
+            sceneRef.current?.setCreatureVisible(current.instanceId, false)
+            setActiveSpawn(null)
+          }
+        }, ms)
+      } catch (e) {
+        setLastError(`load: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    },
+    [phone, gps.position],
+  )
+
+  // zone enter/leave 콜백 등록 (단일 슬롯). useEffect cleanup 으로 재등록.
+  useEffect(() => {
+    if (!started) return
+    const unsubEnter = zoneDetection.onEnterZone(zoneId => {
+      triggerSpawn(zoneId, 'enter')
+    })
+    const unsubLeave = zoneDetection.onLeaveZone(() => {
+      const existing = activeSpawnRef.current
+      if (!existing) return
+      sceneRef.current?.setCreatureVisible(existing.instanceId, false)
+      setActiveSpawn(prev => (prev ? { ...prev, visible: false } : prev))
+    })
+    return () => {
+      unsubEnter()
+      unsubLeave()
     }
+  }, [started, zoneDetection, triggerSpawn])
 
-    setSpawned(prev => [
-      ...prev,
-      {
-        instanceId,
-        creatureDefId: base.id,
-        name: base.name,
-        rarity: base.rarity,
-        spawnedAt: Date.now(),
-        captured: false,
-      },
-    ])
-  }, [selectedRarity])
+  // 30초 폴링 백업 — zone 안에 있는데 activeSpawn.visible 이 false 이거나 null 이면 재호출
+  useEffect(() => {
+    if (!started) return
+    if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
+    pollingTimerRef.current = setInterval(() => {
+      const zoneId = zoneDetection.result.currentZoneId
+      if (!zoneId) return
+      const existing = activeSpawnRef.current
+      if (existing && existing.visible && existing.zoneId === zoneId) return
+      if (existing && existing.expiresAt > Date.now() && existing.zoneId === zoneId) return
+      triggerSpawn(zoneId, 'poll')
+    }, POLLING_INTERVAL_MS)
+    return () => {
+      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
+      pollingTimerRef.current = null
+    }
+  }, [started, zoneDetection.result.currentZoneId, triggerSpawn])
 
-  // 캔버스 터치 → raycast → 크리처 id 발견 → captured=true 토글 + 토스트
+  // 캔버스 탭 — pickCreatureAt → 로컬 captured 토글 (실제 포획 API 는 Phase 4)
   const handleCanvasPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
@@ -303,30 +455,29 @@ export default function PlayPage() {
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1
       const hitId = sceneRef.current?.pickCreatureAt({ x, y }) ?? null
       if (!hitId) return
-      let capturedFirstTime = false
-      setSpawned(prev =>
-        prev.map(sc => {
-          if (sc.instanceId !== hitId) return sc
-          if (!sc.captured) capturedFirstTime = true
-          return { ...sc, captured: true }
-        }),
-      )
-      if (capturedFirstTime) {
-        setLastCapturedAt(Date.now())
-        const target = spawned.find(s => s.instanceId === hitId)
-        showToast(target ? `포획! ${target.name}` : '포획!')
-      }
+      const current = activeSpawnRef.current
+      if (!current || current.instanceId !== hitId) return
+      if (current.captured) return
+      setActiveSpawn({ ...current, captured: true })
+      setLastCapturedAt(Date.now())
+      showToast(`포획! ${current.creatureName}`)
     },
-    [spawned, showToast],
+    [showToast],
   )
 
-  const spawnCount = sceneRef.current?.creatureCount ?? spawned.length
-
   const hudChipText = useMemo(() => {
-    const total = spawned.length
-    const captured = spawned.filter(s => s.captured).length
-    return `포획 ${captured}/${total}`
-  }, [spawned])
+    if (!activeSpawn) return '스폰 대기중'
+    if (activeSpawn.captured) return `포획 완료 · ${activeSpawn.creatureName}`
+    return `스폰중 · ${activeSpawn.creatureName}`
+  }, [activeSpawn])
+
+  const zoneStatusText = useMemo(() => {
+    if (permissions.gps !== 'granted') return 'GPS 권한 필요'
+    if (!gps.position) return '위치 확인 중…'
+    if (!currentZoneId) return '구역 밖'
+    const z = zones.find(zz => zz.id === currentZoneId)
+    return z ? z.name : '구역 안'
+  }, [permissions.gps, gps.position, currentZoneId, zones])
 
   // ---- 렌더 ----
 
@@ -344,19 +495,25 @@ export default function PlayPage() {
         <div className={styles.intro}>
           <h1 className={styles.introTitle}>AR 탐험</h1>
           <p className={styles.introDesc}>
-            시작 버튼을 누르면 카메라와 자이로 권한을 요청합니다.
+            시작 버튼을 누르면 자이로·카메라·위치 권한을 순서대로 요청합니다.
             <br />
-            iOS 는 이 버튼을 탭한 순간에만 자이로 권한이 뜹니다.
+            구역에 진입하면 AR 캐릭터가 자동 소환됩니다.
           </p>
           <ul className={styles.permList}>
             <li>1. 자이로 권한 (iOS)</li>
             <li>2. 카메라 권한 (후면 카메라 우선)</li>
+            <li>3. 위치 권한 (구역 판정용)</li>
           </ul>
+          {!phone && (
+            <p className={styles.hint} style={{ color: '#C62828' }}>
+              AR 탐험은 전화번호가 필요합니다. 먼저 스탬프 랠리 또는 설문 조사에서 전화번호를 입력해주세요.
+            </p>
+          )}
           <button
             type="button"
             className={styles.startBtn}
             onClick={handleStart}
-            disabled={booting}
+            disabled={booting || !phone}
           >
             {booting ? '권한 요청 중…' : '시작'}
           </button>
@@ -365,13 +522,19 @@ export default function PlayPage() {
               {lastError}
             </p>
           )}
-          <p className={styles.hint}>
-            권한 거부 시 자동으로 폴백 페이지로 이동합니다.
-          </p>
+          <p className={styles.hint}>권한 거부 시 폴백 경로로 안내됩니다.</p>
         </div>
       </div>
     )
   }
+
+  const miniMapZones = zones.map(z => ({
+    id: z.id,
+    name: z.name,
+    center_lat: z.center_lat,
+    center_lng: z.center_lng,
+    radius_m: z.radius_m,
+  }))
 
   return (
     <div className={styles.root}>
@@ -403,43 +566,34 @@ export default function PlayPage() {
 
         <div className={styles.hud}>
           <div className={styles.hudChip}>{hudChipText}</div>
+          <div className={styles.hudChip}>{zoneStatusText}</div>
         </div>
 
-        <div className={styles.controlDock}>
-          <div className={styles.segment} role="radiogroup" aria-label="rarity 선택">
-            {RARITY_OPTIONS.map(opt => {
-              const active = selectedRarity === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={[
-                    styles.segmentBtn,
-                    active ? styles.segmentBtnActive : '',
-                    active ? styles[opt.className] : '',
-                  ].join(' ')}
-                  onClick={() => setSelectedRarity(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
+        {/* 우측 하단 미니맵 */}
+        {permissions.gps === 'granted' && gps.position && (
+          <div className={styles.miniMapBox}>
+            <Suspense fallback={<div className={styles.miniMapLoading}>지도 로딩…</div>}>
+              <MiniMap
+                center={{ lat: gps.position.lat, lng: gps.position.lng }}
+                zones={miniMapZones}
+                currentZoneId={currentZoneId}
+                currentAccuracy={gps.position.accuracy}
+              />
+            </Suspense>
           </div>
-          <button
-            type="button"
-            className={styles.spawnBtn}
-            onClick={handleSpawn}
-            disabled={level >= 4}
-          >
-            {selectedRarity === 'legendary'
-              ? '전설 소환'
-              : selectedRarity === 'rare'
-                ? '희귀 소환'
-                : '일반 소환'}
-          </button>
-        </div>
+        )}
+
+        {permissions.gps !== 'granted' && (
+          <div className={styles.gpsNotice}>
+            위치 권한이 필요합니다. 브라우저·시스템 설정에서 허용 후 다시 접속해주세요.
+          </div>
+        )}
+
+        {zonesError && (
+          <div className={styles.gpsNotice} style={{ color: '#F59E0B' }}>
+            구역 로드 실패: {zonesError}
+          </div>
+        )}
 
         {toast && <div className={styles.toast}>{toast}</div>}
 
@@ -450,10 +604,24 @@ export default function PlayPage() {
               fps={fps}
               cameraPermission={permissions.camera}
               gyroPermission={permissions.gyro}
-              spawnCount={spawnCount}
+              spawnCount={activeSpawn ? 1 : 0}
               lastCapturedAt={lastCapturedAt}
               cameraResolution={cameraResolution}
               lastError={lastError}
+              gpsPermission={permissions.gps}
+              gpsPosition={
+                gps.position
+                  ? {
+                      lat: gps.position.lat,
+                      lng: gps.position.lng,
+                      accuracy: gps.position.accuracy,
+                    }
+                  : null
+              }
+              currentZoneId={currentZoneId}
+              activeToken={activeSpawn?.token ?? null}
+              activeTokenExpiresAt={activeSpawn?.expiresAt ?? null}
+              lastPollingAt={lastPollingAt}
             />
           </Suspense>
         )}
