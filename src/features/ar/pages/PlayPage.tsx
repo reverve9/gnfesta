@@ -385,6 +385,7 @@ export default function PlayPage() {
   }, [scheduler.currentSpawn])
 
   // 캔버스 탭 — pickCreatureAt → 로컬 captured 토글 (실제 포획 API 는 Phase 4)
+  // R2 보완: 소멸 + 스케줄러 리셋 연결 (크리처 시각 제거 + 다음 스폰 45s 후 재개).
   const handleCanvasPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
@@ -397,11 +398,13 @@ export default function PlayPage() {
       const current = activeSpawnRef.current
       if (!current || current.instanceId !== hitId) return
       if (current.captured) return
-      setActiveSpawn({ ...current, captured: true })
+      sceneRef.current?.setCreatureVisible(current.instanceId, false)
+      setActiveSpawn({ ...current, captured: true, visible: false })
       setLastCapturedAt(Date.now())
       showToast(`포획! ${current.creatureName}`)
+      scheduler.markCaptured()
     },
-    [showToast],
+    [showToast, scheduler],
   )
 
   const hudChipText = useMemo(() => {

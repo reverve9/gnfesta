@@ -49,6 +49,15 @@ export interface SpawnSchedulerState {
   lastRejectedDelta: { distanceM: number; timestamp: number } | null
   /** 마지막 에러 메시지. */
   error: string | null
+  /**
+   * 포획 성공 시 호출 — currentSpawn 을 즉시 null 로 리셋 + 시간 트리거 기준 시각을
+   * 지금으로 재설정. 다음 스폰은 포획 시점에서 `spawnIntervalSec` 후 재발동.
+   * 누적 이동 거리는 유지 (이동 트리거 독립성 보장).
+   *
+   * Phase 2 의 로컬 captured state 와 조합하여 R2 포획 흐름을 완성. Phase 4 에서
+   * 서버 `/api/ar/capture` 도입 시 해당 RPC 응답 후 호출 예정.
+   */
+  markCaptured: () => void
 }
 
 export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerState {
@@ -91,6 +100,15 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     setAccumulatedDistanceM(0)
     setCurrentSpawn(null)
     setError(null)
+  }, [])
+
+  const markCaptured = useCallback(() => {
+    const now = Date.now()
+    currentSpawnRef.current = null
+    lastSpawnAtRef.current = now
+    setCurrentSpawn(null)
+    setLastSpawnAt(now)
+    // accumulatedRef / setAccumulatedDistanceM 는 건드리지 않음 — 이동 트리거 독립성 유지.
   }, [])
 
   const triggerSpawn = useCallback(async () => {
@@ -207,5 +225,6 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     currentSpawn,
     lastRejectedDelta,
     error,
+    markCaptured,
   }
 }
