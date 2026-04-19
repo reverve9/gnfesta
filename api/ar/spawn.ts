@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
  *
  * 호출:
  *   POST /api/ar/spawn
- *   { phone, zone_id, client_lat, client_lng }
+ *   { phone, client_lat, client_lng }
  *
  * 성공 응답 (200):
  *   { ok:true, spawn: { token, creature_id, creature_name, creature_rarity,
@@ -14,16 +14,17 @@ import { createClient } from '@supabase/supabase-js'
  *
  * 실패 응답:
  *   { ok:false, result, message? }
- *   result ∈ invalid_phone | invalid_request | zone_not_active | no_creatures_in_zone
+ *   result ∈ invalid_phone | invalid_request | no_creatures
  *          | server_error | server_misconfigured | method_not_allowed
  *
- * 설계 메모
- *  · creature 선택은 서버 전담 (클라 조작 방지). rarity 분포는 common 70 / rare 25 / legendary 5 하드코딩 —
- *    어드민에서 조정은 Phase 6 범위.
- *  · 동일 phone × zone 에 **unconsumed + unexpired** token 이 이미 있으면 그대로 재반환.
- *    Phase 3 의 30초 폴링 백업이 이 경로로 수렴 → 클라 state 유실 복구에도 안전.
- *  · `issue_spawn_token` RPC (Phase 1) 는 시그니처 변경 없이 그대로 호출.
- *  · `ar_capture_attempts` insert 는 이 시점엔 하지 않음 (포획 시도 시점 전용).
+ * Phase 3-R1 재설계 (phase3_redesign.md v1.0)
+ *  · zone_id 요구 제거 — 다중 zone 모델 폐기.
+ *  · ar_zones 쿼리 제거. geofence 검증은 R3 에서 festival_settings 기반으로 재도입.
+ *  · body 에 zone_id 가 와도 무시 (클라 postArSpawn 시그니처 R2 까지 유지).
+ *  · `issue_spawn_token` 은 (p_phone, p_creature_id) 2파라미터.
+ *  · rarity 분포는 여전히 common 70 / rare 25 / legendary 5 하드코딩 —
+ *    ar_festival_settings 연동은 R3 범위.
+ *  · 기존 유효 token 재사용 로직: phone 단독 기준 (zone_id 제거).
  *  · Vercel 제약: api/_lib/ 임포트 금지 → phone 정규화 등 인라인.
  */
 
@@ -94,7 +95,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (req.body ?? {}) as {
     phone?: string
-    zone_id?: string
     client_lat?: number
     client_lng?: number
   }
@@ -105,11 +105,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const normalized = normalizePhone(body.phone)
   if (!isValidNormalizedPhone(normalized)) {
     return res.status(400).json({ ok: false, result: 'invalid_phone' })
-  }
-  if (!body.zone_id || typeof body.zone_id !== 'string') {
-    return res
-      .status(400)
-      .json({ ok: false, result: 'invalid_request', message: 'zone_id required' })
   }
   if (!isValidCoord(body.client_lat, body.client_lng)) {
     return res
@@ -128,27 +123,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const supabase = createClient(supabaseUrl, supabaseKey)
 
-  // 1) Zone active 확인
-  const { data: zone, error: zoneError } = await supabase
-    .from('ar_zones')
-    .select('id, active')
-    .eq('id', body.zone_id)
-    .maybeSingle()
-  if (zoneError) {
-    return res
-      .status(500)
-      .json({ ok: false, result: 'server_error', message: zoneError.message })
-  }
-  if (!zone || !zone.active) {
-    return res.status(200).json({ ok: false, result: 'zone_not_active' })
-  }
-
-  // 2) 기존 유효 token 재사용 — 폴링 백업·클라 state 유실 복구 용도
+  // 1) 기존 유효 token 재사용 — phone 단독 기준 (zone_id 모델 폐기)
   const { data: existing, error: existErr } = await supabase
     .from('ar_spawn_tokens')
     .select('token, creature_id, expires_at')
     .eq('phone', normalized)
-    .eq('zone_id', body.zone_id)
     .is('consumed_at', null)
     .gt('expires_at', new Date().toISOString())
     .order('issued_at', { ascending: false })
@@ -183,7 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // creature 가 soft-delete/사라진 레이스 — 신규 경로로 낙하
   }
 
-  // 3) 신규 creature 선택 — active 전체 조회 후 rarity 샘플링 → spawn_rate 가중
+  // 2) 신규 creature 선택 — active 전체 조회 후 rarity 샘플링 → spawn_rate 가중
   const { data: allCreatures, error: cErr } = await supabase
     .from('ar_creatures')
     .select('id, name, rarity, model_url, thumbnail_url, spawn_rate')
@@ -194,10 +173,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .json({ ok: false, result: 'server_error', message: cErr.message })
   }
   if (!allCreatures || allCreatures.length === 0) {
-    return res.status(200).json({ ok: false, result: 'no_creatures_in_zone' })
+    return res.status(200).json({ ok: false, result: 'no_creatures' })
   }
 
-  // rarity 우선순위: 샘플링 → common → rare → legendary 폴백 (active 한 rarity 어디라도 존재하면 성공)
+  // rarity 우선순위: 샘플링 → common → rare → legendary 폴백
   const tryOrder: Rarity[] = [sampleRarity(), 'common', 'rare', 'legendary']
   let chosen: CreatureRow | null = null
   for (const rar of tryOrder) {
@@ -208,14 +187,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
   if (!chosen) {
-    return res.status(200).json({ ok: false, result: 'no_creatures_in_zone' })
+    return res.status(200).json({ ok: false, result: 'no_creatures' })
   }
 
-  // 4) issue_spawn_token RPC (Phase 1, SECURITY DEFINER, TTL 60초)
+  // 3) issue_spawn_token RPC (2파라미터, SECURITY DEFINER, TTL 60초)
   const { data: tokenData, error: rpcErr } = await supabase.rpc('issue_spawn_token', {
     p_phone: normalized,
     p_creature_id: chosen.id,
-    p_zone_id: body.zone_id,
   })
   const token = typeof tokenData === 'string' ? tokenData : null
   if (rpcErr || !token) {
@@ -226,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  // 5) expires_at 재조회 (RPC 가 token 만 반환)
+  // 4) expires_at 재조회 (RPC 가 token 만 반환)
   const { data: tokenRow } = await supabase
     .from('ar_spawn_tokens')
     .select('expires_at')

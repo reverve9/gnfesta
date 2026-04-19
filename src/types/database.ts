@@ -855,26 +855,46 @@ export interface Database {
         }
         Relationships: []
       }
-      ar_zones: {
+      ar_festival_settings: {
         Row: {
           id: string
           name: string
           center_lat: number
           center_lng: number
-          radius_m: number
-          spawn_weight: number
+          geofence_radius_m: number
+          spawn_interval_sec: number
+          movement_bonus_distance_m: number
+          rarity_weight_common: number
+          rarity_weight_rare: number
+          rarity_weight_legendary: number
+          capture_token_ttl_sec: number
+          capture_cooldown_sec: number
+          mission_common_count: number
+          mission_rare_count: number
+          mission_legendary_count: number
           active: boolean
+          updated_by: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          name: string
+          name?: string
           center_lat: number
           center_lng: number
-          radius_m: number
-          spawn_weight?: number
+          geofence_radius_m: number
+          spawn_interval_sec?: number
+          movement_bonus_distance_m?: number
+          rarity_weight_common?: number
+          rarity_weight_rare?: number
+          rarity_weight_legendary?: number
+          capture_token_ttl_sec?: number
+          capture_cooldown_sec?: number
+          mission_common_count?: number
+          mission_rare_count?: number
+          mission_legendary_count?: number
           active?: boolean
+          updated_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -883,9 +903,19 @@ export interface Database {
           name?: string
           center_lat?: number
           center_lng?: number
-          radius_m?: number
-          spawn_weight?: number
+          geofence_radius_m?: number
+          spawn_interval_sec?: number
+          movement_bonus_distance_m?: number
+          rarity_weight_common?: number
+          rarity_weight_rare?: number
+          rarity_weight_legendary?: number
+          capture_token_ttl_sec?: number
+          capture_cooldown_sec?: number
+          mission_common_count?: number
+          mission_rare_count?: number
+          mission_legendary_count?: number
           active?: boolean
+          updated_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -938,7 +968,6 @@ export interface Database {
           token: string
           phone: string
           creature_id: string
-          zone_id: string
           issued_at: string
           expires_at: string
           consumed_at: string | null
@@ -947,7 +976,6 @@ export interface Database {
           token: string
           phone: string
           creature_id: string
-          zone_id: string
           issued_at?: string
           expires_at: string
           consumed_at?: string | null
@@ -956,7 +984,6 @@ export interface Database {
           token?: string
           phone?: string
           creature_id?: string
-          zone_id?: string
           issued_at?: string
           expires_at?: string
           consumed_at?: string | null
@@ -969,13 +996,6 @@ export interface Database {
             referencedRelation: 'ar_creatures'
             referencedColumns: ['id']
           },
-          {
-            foreignKeyName: 'ar_spawn_tokens_zone_id_fkey'
-            columns: ['zone_id']
-            isOneToOne: false
-            referencedRelation: 'ar_zones'
-            referencedColumns: ['id']
-          },
         ]
       }
       ar_captures: {
@@ -983,7 +1003,6 @@ export interface Database {
           id: number
           phone: string
           creature_id: string
-          zone_id: string | null
           captured_at: string
           client_lat: number | null
           client_lng: number | null
@@ -993,7 +1012,6 @@ export interface Database {
           id?: number
           phone: string
           creature_id: string
-          zone_id?: string | null
           captured_at?: string
           client_lat?: number | null
           client_lng?: number | null
@@ -1003,7 +1021,6 @@ export interface Database {
           id?: number
           phone?: string
           creature_id?: string
-          zone_id?: string | null
           captured_at?: string
           client_lat?: number | null
           client_lng?: number | null
@@ -1017,13 +1034,6 @@ export interface Database {
             referencedRelation: 'ar_creatures'
             referencedColumns: ['id']
           },
-          {
-            foreignKeyName: 'ar_captures_zone_id_fkey'
-            columns: ['zone_id']
-            isOneToOne: false
-            referencedRelation: 'ar_zones'
-            referencedColumns: ['id']
-          },
         ]
       }
       ar_capture_attempts: {
@@ -1031,7 +1041,6 @@ export interface Database {
           id: number
           phone: string
           creature_id: string | null
-          zone_id: string | null
           attempted_at: string
           result: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
           client_lat: number | null
@@ -1042,7 +1051,6 @@ export interface Database {
           id?: number
           phone: string
           creature_id?: string | null
-          zone_id?: string | null
           attempted_at?: string
           result: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
           client_lat?: number | null
@@ -1053,7 +1061,6 @@ export interface Database {
           id?: number
           phone?: string
           creature_id?: string | null
-          zone_id?: string | null
           attempted_at?: string
           result?: 'success' | 'invalid_token' | 'rate_limit' | 'velocity' | 'zone_rate_limit' | 'duplicate' | 'unknown_error'
           client_lat?: number | null
@@ -1066,13 +1073,6 @@ export interface Database {
             columns: ['creature_id']
             isOneToOne: false
             referencedRelation: 'ar_creatures'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'ar_capture_attempts_zone_id_fkey'
-            columns: ['zone_id']
-            isOneToOne: false
-            referencedRelation: 'ar_zones'
             referencedColumns: ['id']
           },
         ]
@@ -1163,21 +1163,12 @@ export interface Database {
         Args: { p_menu_id: string; p_qty: number }
         Returns: number
       }
-      capture_creature: {
-        Args: {
-          p_token: string
-          p_phone: string
-          p_client_lat: number
-          p_client_lng: number
-        }
-        Returns: Json
-      }
       claim_ar_prize: {
         Args: { p_phone: string }
         Returns: Json
       }
       issue_spawn_token: {
-        Args: { p_phone: string; p_creature_id: string; p_zone_id: string }
+        Args: { p_phone: string; p_creature_id: string }
         Returns: string
       }
       generate_ar_reward_code: {
@@ -1187,6 +1178,14 @@ export interface Database {
       haversine_km: {
         Args: { lat1: number; lng1: number; lat2: number; lng2: number }
         Returns: number
+      }
+      get_festival_settings: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      update_festival_settings: {
+        Args: { p_settings: Json }
+        Returns: Json
       }
     }
     Enums: {
@@ -1217,10 +1216,10 @@ export type BoothAccount = Database['public']['Tables']['booth_accounts']['Row']
 export type BoothAccountInsert = Database['public']['Tables']['booth_accounts']['Insert']
 export type StampPrizeClaim = Database['public']['Tables']['stamp_prize_claims']['Row']
 
-// AR 모듈 (Phase 1 추가)
+// AR 모듈 (Phase 1 추가. Phase 3-R1: zones 제거 + festival_settings 도입)
 export type ArGame = Database['public']['Tables']['ar_games']['Row']
-export type ArZone = Database['public']['Tables']['ar_zones']['Row']
-export type ArZoneInsert = Database['public']['Tables']['ar_zones']['Insert']
+export type ArFestivalSettings = Database['public']['Tables']['ar_festival_settings']['Row']
+export type ArFestivalSettingsInsert = Database['public']['Tables']['ar_festival_settings']['Insert']
 export type ArCreature = Database['public']['Tables']['ar_creatures']['Row']
 export type ArCreatureInsert = Database['public']['Tables']['ar_creatures']['Insert']
 export type ArSpawnToken = Database['public']['Tables']['ar_spawn_tokens']['Row']

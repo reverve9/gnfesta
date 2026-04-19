@@ -1,4 +1,4 @@
-import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, QrCode, Gift, Stamp, LogOut, Compass, Settings, Map, BarChart3, Trophy, ShieldAlert } from 'lucide-react'
+import { Sparkles, Cake, Megaphone, Store, Key, Signal, ChartColumn, ClipboardList, ReceiptText, Ticket, QrCode, Gift, Stamp, LogOut, Compass, Settings, BarChart3, Trophy, ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import type { ComponentType, SVGProps } from 'react'
@@ -43,7 +43,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'AR 게임 관리',
     items: [
       { label: '게임 설정', path: '/ar/settings', icon: Settings },
-      { label: '구역 관리', path: '/ar/zones', icon: Map },
       { label: '캐릭터 관리', path: '/ar/creatures', icon: Compass },
       { label: 'AR 통계', path: '/ar/stats', icon: BarChart3 },
       { label: 'AR 보상 관리', path: '/ar/rewards', icon: Ticket },

@@ -32,7 +32,6 @@ import AdminProgramQrCodes from '@/pages/admin/AdminProgramQrCodes'
 import AdminPrizeClaims from '@/pages/admin/AdminPrizeClaims'
 import AdminStampRally from '@/pages/admin/AdminStampRally'
 import AdminArSettings from '@/features/ar/pages/admin/AdminArSettings'
-import AdminArZones from '@/features/ar/pages/admin/AdminArZones'
 import AdminArCreatures from '@/features/ar/pages/admin/AdminArCreatures'
 import AdminArStats from '@/features/ar/pages/admin/AdminArStats'
 import AdminArRewards from '@/features/ar/pages/admin/AdminArRewards'
@@ -111,9 +110,8 @@ function AdminRoutes() {
         <Route path="orders" element={<AdminOrders />} />
         <Route path="qrcodes" element={<AdminQrCodes />} />
         <Route path="program-qrcodes" element={<AdminProgramQrCodes />} />
-        {/* AR 게임 관리 — Phase 1 스텁. 실제 UI 는 Phase 6 */}
+        {/* AR 게임 관리 — 설정은 Phase 3-R1 에서 구현 완료. 나머지는 Phase 6 스텁 */}
         <Route path="ar/settings" element={<AdminArSettings />} />
-        <Route path="ar/zones" element={<AdminArZones />} />
         <Route path="ar/creatures" element={<AdminArCreatures />} />
         <Route path="ar/stats" element={<AdminArStats />} />
         <Route path="ar/rewards" element={<AdminArRewards />} />
