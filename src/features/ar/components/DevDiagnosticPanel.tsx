@@ -11,19 +11,17 @@
  *    또는 조건부 dynamic import 로 이 컴포넌트를 로드한다.
  *  - 이 파일 자체도 `import.meta.env.DEV` 런타임 가드를 함께 두어 2중 안전.
  *
- * Phase 2 범위의 표시 항목 (체크포인트 ⓒ 완료 기준):
- *  - Fallback Level
- *  - FPS
- *  - 메모리 (Chromium 전용 `performance.memory.usedJSHeapSize`)
- *  - 카메라 권한 / 자이로 권한
- *  - 스폰 수 (현재 씬에 살아있는 인스턴스)
- *  - 마지막 포획 시각
- *  - 카메라 해상도 (getSettings 결과)
+ * Phase 3-R2 재설계 (필드 변경):
+ *  - `currentZoneId` · `lastPollingAt` 제거 (다중 zone 모델 폐기).
+ *  - geofence: inside/outside · distanceToCenter (m) · geofence_radius_m (설정값).
+ *  - scheduler: nextSpawnEta (ms) · accumulatedDistanceM (m) · lastSpawnAt ·
+ *                lastRejectedDelta · capture_cooldown_sec (설정값, R3 참조용).
  */
 
 import { useEffect, useState } from 'react'
 import type { FallbackLevel } from '../lib/detectFallbackLevel'
 import type { PermissionState } from '../hooks/useArPermissions'
+import type { FestivalSettingsDto } from '../lib/api'
 import styles from './DevDiagnosticPanel.module.css'
 
 type MemoryWithHeap = Performance & {
@@ -40,14 +38,20 @@ export interface DevDiagnosticPanelProps {
   cameraResolution: { width: number; height: number } | null
   /** 에러 로그. 화면 하단에 최근 1건만 노출. */
   lastError?: string | null
-  // --- Phase 3 추가 ---
+  // --- Phase 3 공통 ---
   gpsPermission?: PermissionState
   gpsPosition?: { lat: number; lng: number; accuracy: number } | null
-  currentZoneId?: string | null
   activeToken?: string | null
   /** spawn token 만료 시각 (ms epoch). 남은 초 카운트다운 표시용. */
   activeTokenExpiresAt?: number | null
-  lastPollingAt?: number | null
+  // --- Phase 3-R2 신규 (geofence + scheduler) ---
+  settings?: FestivalSettingsDto | null
+  inside?: boolean
+  distanceToCenter?: number | null
+  nextSpawnEta?: number | null
+  accumulatedDistanceM?: number
+  lastSpawnAt?: number | null
+  lastRejectedDelta?: { distanceM: number; timestamp: number } | null
 }
 
 function formatMemoryMB(): string {
@@ -57,8 +61,8 @@ function formatMemoryMB(): string {
   return `${(mem.usedJSHeapSize / 1024 / 1024).toFixed(1)} MB`
 }
 
-function formatCapturedAt(ts: number | null): string {
-  if (ts === null) return '—'
+function formatTime(ts: number | null | undefined): string {
+  if (ts === null || ts === undefined) return '—'
   const d = new Date(ts)
   const hh = d.getHours().toString().padStart(2, '0')
   const mm = d.getMinutes().toString().padStart(2, '0')
@@ -66,12 +70,24 @@ function formatCapturedAt(ts: number | null): string {
   return `${hh}:${mm}:${ss}`
 }
 
+function formatMeters(m: number | null | undefined): string {
+  if (m === null || m === undefined) return '—'
+  if (m < 1) return `${m.toFixed(2)}m`
+  if (m < 1000) return `${Math.round(m)}m`
+  return `${(m / 1000).toFixed(2)}km`
+}
+
+function formatEtaSec(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return '—'
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${s}s`
+}
+
 export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const [open, setOpen] = useState(true)
   const [memoryText, setMemoryText] = useState<string>('—')
   const [tokenCountdown, setTokenCountdown] = useState<string>('—')
 
-  // 메모리는 1초 단위 재측정. rAF 루프 안에 넣지 않아 본 씬 성능 영향 최소.
   useEffect(() => {
     if (!import.meta.env.DEV) return
     const update = () => setMemoryText(formatMemoryMB())
@@ -80,7 +96,6 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     return () => clearInterval(id)
   }, [])
 
-  // spawn token 만료 카운트다운 — 1초 단위 갱신. activeTokenExpiresAt 이 없거나 과거면 '—'.
   useEffect(() => {
     if (!import.meta.env.DEV) return
     const tick = () => {
@@ -97,8 +112,6 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     return () => clearInterval(id)
   }, [props.activeTokenExpiresAt])
 
-  // 프로덕션에서 이 컴포넌트가 어떤 이유로든 렌더되면 즉시 null 반환.
-  // dynamic import 가드가 실패해도 UI 유출 방지.
   if (!import.meta.env.DEV) return null
 
   if (!open) {
@@ -113,6 +126,12 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
       </button>
     )
   }
+
+  const s = props.settings
+  const insideLabel =
+    props.inside === undefined ? '—' : props.inside ? 'inside' : 'outside'
+  const radiusLabel = s ? `${s.geofence_radius_m}m` : '—'
+  const cooldownLabel = s ? `${s.capture_cooldown_sec}s` : '—'
 
   return (
     <div className={styles.panel} role="region" aria-label="DEV 진단 패널">
@@ -148,7 +167,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
         <dd className={styles.val}>{props.spawnCount}</dd>
 
         <dt className={styles.key}>Captured@</dt>
-        <dd className={styles.val}>{formatCapturedAt(props.lastCapturedAt)}</dd>
+        <dd className={styles.val}>{formatTime(props.lastCapturedAt)}</dd>
 
         <dt className={styles.key}>Cam res</dt>
         <dd className={styles.val}>
@@ -165,12 +184,22 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
             : ''}
         </dd>
 
-        <dt className={styles.key}>Zone</dt>
+        <dt className={styles.key}>Geofence</dt>
         <dd className={styles.val}>
-          {props.currentZoneId
-            ? props.currentZoneId.slice(0, 8) + '…'
-            : '—'}
+          {insideLabel} · radius {radiusLabel} · dist {formatMeters(props.distanceToCenter)}
         </dd>
+
+        <dt className={styles.key}>Next spawn</dt>
+        <dd className={styles.val}>{formatEtaSec(props.nextSpawnEta)}</dd>
+
+        <dt className={styles.key}>Moved</dt>
+        <dd className={styles.val}>
+          {formatMeters(props.accumulatedDistanceM ?? 0)}
+          {s ? ` / ${s.movement_bonus_distance_m}m` : ''}
+        </dd>
+
+        <dt className={styles.key}>Last spawn</dt>
+        <dd className={styles.val}>{formatTime(props.lastSpawnAt)}</dd>
 
         <dt className={styles.key}>Token</dt>
         <dd className={styles.val}>
@@ -179,10 +208,17 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
             : '—'}
         </dd>
 
-        <dt className={styles.key}>Polled@</dt>
-        <dd className={styles.val}>
-          {formatCapturedAt(props.lastPollingAt ?? null)}
-        </dd>
+        <dt className={styles.key}>Cooldown</dt>
+        <dd className={styles.val}>{cooldownLabel} (R3)</dd>
+
+        {props.lastRejectedDelta && (
+          <>
+            <dt className={styles.key}>GPS spike</dt>
+            <dd className={styles.val}>
+              {formatMeters(props.lastRejectedDelta.distanceM)} @ {formatTime(props.lastRejectedDelta.timestamp)}
+            </dd>
+          </>
+        )}
 
         {props.lastError && (
           <>

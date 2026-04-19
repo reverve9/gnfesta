@@ -1,34 +1,35 @@
 /**
- * /ar/play — Phase 3 실구현 (Phase 2 더미 스폰 철거 · 서버 스폰 + GPS + 미니맵 통합).
+ * /ar/play — Phase 3 (R1 + R2 완료 상태).
+ *
+ * Phase 3-R2 재설계 반영:
+ *   - 다중 zone → 축제장 단일 geofence.
+ *   - zone enter/leave 이벤트 기반 스폰 → 시간·이동 기반 `useSpawnScheduler`.
+ *   - `useZoneDetection` · `detectZoneEntry` · `getArZones` 사용 중단.
+ *   - geofence 밖: ArScene mount 유지 + 스폰·렌더만 중단 (리소스 토글 대신 Phase 2
+ *     자이로 이슈 재현 리스크 최소화 — R2 Q2 결정).
  *
  * 플로우:
  *   Mount → detectInitialFallbackLevel (Phase 2 유지)
  *     ├─ L4 → /ar/fallback redirect
- *     └─ phone 없음 → 인트로에서 "스탬프 랠리에서 전화번호 입력" 안내 (시작 disabled)
- *   "시작" 버튼 onClick (iOS gesture chain: gyro → camera → gps 순)
- *     ├─ camera denied → /ar/fallback
- *     ├─ gps denied → started=true 하되 미니맵·spawn 비활성 (UX: 설정 안내)
- *     └─ 모두 OK → started=true
+ *     └─ phone 없음 → 시작 disabled
+ *   "시작" 버튼 (iOS gesture chain: gyro → camera → gps)
+ *     → started=true
  *   권한 획득 후:
- *     → GET /api/ar/zones — active 구역 목록 1회 로드
  *     → useGpsPosition.start() — watchPosition 지속 추적
- *     → useZoneDetection 가 enter/leave 이벤트 발화
- *     → MiniMap 렌더 (vanilla Leaflet, lazy import)
- *   zone enter:
- *     → postArSpawn → CreatureLoader.load → ArScene.spawnCreature → activeSpawn state
- *   zone leave:
- *     → ArScene.setCreatureVisible(id, false) + activeSpawn state 유지 (zone 재진입 시 재활용)
- *   30초 폴링 백업:
- *     → currentZoneId 존재 + activeSpawn 없거나 만료면 postArSpawn 재시도
- *     → 서버가 기존 토큰 재사용(reused:true) 로 응답하면 동일 creature 렌더
+ *     → useFestivalGeofence(gps.position) — 설정 fetch + inside/distance 판정
+ *     → useSpawnScheduler (enabled = started && gps granted && inside && settings 로드)
+ *   scheduler.currentSpawn 변경 시:
+ *     → 신규 token 이면 loader.load → ArScene.spawnCreature, activeSpawn state 갱신
+ *     → null 이면 기존 activeSpawn 숨김
+ *   geofence 밖:
+ *     → 스케줄러 자동 비활성 · currentSpawn null → activeSpawn 숨김
+ *     → 오버레이로 "축제장까지 XXm" 안내 표시
  *   캔버스 탭:
- *     → pickCreatureAt → 로컬 captured=true (Phase 2 로직 유지)
- *     → 실제 /api/ar/capture 호출은 Phase 4
+ *     → pickCreatureAt → 로컬 captured=true (Phase 2 로직 유지, 실 포획 API 는 Phase 4)
  *
  * Phase 2 회귀 보호:
- *   - ArScene / CreatureLoader / GyroController / CameraStream 수정 안 함.
- *   - ArScene.setCreatureVisible 만 신규 호출 (Phase 3 에서 허용된 단일 추가).
- *   - 자이로 이슈·기술 부채 #1 무관.
+ *   - ArScene / CreatureLoader / GyroController / CameraStream 수정 없음.
+ *   - ArScene.setCreatureVisible 만 호출 (Phase 3 허용 단일 추가).
  */
 
 import {
@@ -49,7 +50,8 @@ import { FallbackRenderer } from '../three/FallbackRenderer'
 import { useArPermissions } from '../hooks/useArPermissions'
 import { useArSceneLifecycle } from '../hooks/useArSceneLifecycle'
 import { useGpsPosition } from '../hooks/useGpsPosition'
-import { useZoneDetection } from '../hooks/useZoneDetection'
+import { useFestivalGeofence } from '../hooks/useFestivalGeofence'
+import { useSpawnScheduler } from '../hooks/useSpawnScheduler'
 import {
   detectFallbackLevel,
   detectInitialFallbackLevel,
@@ -62,7 +64,6 @@ import {
 import type { PermissionState } from '../hooks/useArPermissions'
 import { resolveCreatureModelUrl } from '../lib/assets'
 import type { ArRarity } from '../lib/assets'
-import { getArZones, postArSpawn, type ArZoneDto } from '../lib/api'
 import { loadLastPhone } from '../../../lib/phone'
 import styles from './PlayPage.module.css'
 
@@ -77,7 +78,7 @@ const MiniMap = lazy(() => import('../components/MiniMap'))
 interface ActiveSpawn {
   /** 서버 발급 token. Phase 4 포획 API 에서 사용. */
   token: string
-  /** ArScene 내부 Map key. 동일 token → 동일 instanceId 유지 (재방문 시 재사용). */
+  /** ArScene 내부 Map key. 동일 token → 동일 instanceId 유지. */
   instanceId: string
   creatureId: string
   creatureName: string
@@ -85,9 +86,8 @@ interface ActiveSpawn {
   modelUrl: string
   /** ms epoch. 만료 시 자동 정리. */
   expiresAt: number
-  zoneId: string
   captured: boolean
-  /** zone leave 시 false, 재enter + 동일 token 시 true 로 복원. */
+  /** geofence outside 시 false, 재진입 + 동일 token 시 true 로 복원. */
   visible: boolean
 }
 
@@ -115,7 +115,11 @@ function scaleForModelUrl(url: string): number {
   return 1
 }
 
-const POLLING_INTERVAL_MS = 30_000
+function formatMeters(m: number | null): string {
+  if (m === null) return '—'
+  if (m < 1000) return `${Math.round(m)}m`
+  return `${(m / 1000).toFixed(2)}km`
+}
 
 export default function PlayPage() {
   const navigate = useNavigate()
@@ -134,8 +138,6 @@ export default function PlayPage() {
   const [level, setLevel] = useState<FallbackLevel>(1)
   const [webglSupported, setWebglSupported] = useState<boolean>(true)
   const [phone, setPhone] = useState<string>('')
-  const [zones, setZones] = useState<ArZoneDto[]>([])
-  const [zonesError, setZonesError] = useState<string | null>(null)
   const [activeSpawn, setActiveSpawn] = useState<ActiveSpawn | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [fps, setFps] = useState<number>(0)
@@ -144,7 +146,6 @@ export default function PlayPage() {
     height: number
   } | null>(null)
   const [lastCapturedAt, setLastCapturedAt] = useState<number | null>(null)
-  const [lastPollingAt, setLastPollingAt] = useState<number | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -153,27 +154,25 @@ export default function PlayPage() {
   const fallbackRendererRef = useRef<FallbackRenderer | null>(null)
   const creatureLoaderRef = useRef<CreatureLoader | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const tokenExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // activeSpawn 을 effect/콜백에서 최신값으로 참조하기 위한 ref (state 업데이트 후 재호출 없이).
   const activeSpawnRef = useRef<ActiveSpawn | null>(null)
   activeSpawnRef.current = activeSpawn
 
   const gps = useGpsPosition({ enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 })
-  const zoneDetection = useZoneDetection(
-    useMemo(
-      () =>
-        zones.map(z => ({
-          id: z.id,
-          center_lat: z.center_lat,
-          center_lng: z.center_lng,
-          radius_m: z.radius_m,
-        })),
-      [zones],
-    ),
-    gps.position,
-  )
-  const currentZoneId = zoneDetection.result.currentZoneId
+  const geofence = useFestivalGeofence(gps.position)
+
+  const schedulerEnabled =
+    started &&
+    permissions.gps === 'granted' &&
+    geofence.inside &&
+    geofence.settings !== null
+  const scheduler = useSpawnScheduler({
+    enabled: schedulerEnabled,
+    phone,
+    position: gps.position,
+    spawnIntervalSec: geofence.settings?.spawn_interval_sec ?? 45,
+    movementBonusDistanceM: geofence.settings?.movement_bonus_distance_m ?? 50,
+    captureTokenTtlSec: geofence.settings?.capture_token_ttl_sec ?? 60,
+  })
 
   // Mount: 초기 Level 4 감지 + phone 자동 로드.
   useEffect(() => {
@@ -187,7 +186,7 @@ export default function PlayPage() {
     if (saved) setPhone(saved)
   }, [navigate])
 
-  // 권한·WebGL·FPS 변화에 따른 level 재평가 (Phase 2 와 동일 로직. GPS 는 level 에 영향 없음).
+  // 권한·WebGL·FPS 변화에 따른 level 재평가 (Phase 2 로직 유지).
   useEffect(() => {
     if (!started) return
     const next = detectFallbackLevel({
@@ -217,8 +216,6 @@ export default function PlayPage() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
-      if (tokenExpiryTimerRef.current) clearTimeout(tokenExpiryTimerRef.current)
     }
   }, [])
 
@@ -247,7 +244,7 @@ export default function PlayPage() {
           height: camResult.settings.height,
         })
       }
-      // GPS — 거부돼도 진입은 허용 (카메라·자이로 는 정상 동작). spawn 만 비활성.
+      // GPS 거부돼도 진입은 허용 (카메라·자이로는 정상). spawn 만 비활성.
       await requestGps()
       setStarted(true)
     } catch (e) {
@@ -309,76 +306,63 @@ export default function PlayPage() {
     }
   }, [started, permissions.camera, permissions.gyro, level, gyroControllerRef])
 
-  // GPS 활성화 + zone 목록 로드 (started 이후 1회)
+  // GPS 활성화 (started + 권한 획득 후)
   useEffect(() => {
     if (!started) return
     if (permissions.gps === 'granted') {
       gps.start()
     }
-    let cancelled = false
-    ;(async () => {
-      const res = await getArZones()
-      if (cancelled) return
-      if (res.error) {
-        setZonesError(res.error)
-        return
-      }
-      setZones(res.zones)
-    })()
-    return () => {
-      cancelled = true
-    }
     // gps.start 는 레퍼런스 변화에 재호출하지 않도록 deps 에서 제외.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, permissions.gps])
 
-  // 서버 스폰 처리 함수 — enter 이벤트 / 폴링 공용
-  const triggerSpawn = useCallback(
-    async (zoneId: string, reason: 'enter' | 'poll') => {
-      const scene = sceneRef.current
-      const loader = creatureLoaderRef.current
-      if (!scene || !loader) return
-      if (!phone) return
-      const pos = gps.position
-      if (!pos) return
+  // 스케줄러 에러 → lastError 로 노출
+  useEffect(() => {
+    if (scheduler.error) setLastError(`spawn: ${scheduler.error}`)
+  }, [scheduler.error])
 
-      if (reason === 'poll') setLastPollingAt(Date.now())
+  // scheduler.currentSpawn 변화 → 모델 로드/숨김/전환
+  useEffect(() => {
+    const s = scheduler.currentSpawn
+    const scene = sceneRef.current
+    const loader = creatureLoaderRef.current
+    if (!scene || !loader) return
 
-      const resp = await postArSpawn({
-        phone,
-        zoneId,
-        lat: pos.lat,
-        lng: pos.lng,
-      })
-      if (!resp.ok) {
-        setLastError(`spawn ${resp.result}${resp.message ? `: ${resp.message}` : ''}`)
-        return
-      }
-      const s = resp.spawn
+    if (!s) {
       const existing = activeSpawnRef.current
-
-      // 기존 활성 스폰이 이미 같은 token 이면 visible 만 복구.
-      if (existing && existing.token === s.token) {
-        scene.setCreatureVisible(existing.instanceId, true)
-        setActiveSpawn({ ...existing, visible: true, zoneId })
-        return
-      }
-
-      // 다른 token 이면 기존 인스턴스는 숨기고 새 creature 로드.
-      if (existing) {
+      if (existing && existing.visible) {
         scene.setCreatureVisible(existing.instanceId, false)
+        setActiveSpawn({ ...existing, visible: false })
       }
+      return
+    }
 
+    const existing = activeSpawnRef.current
+    // 동일 token → 가시성만 복원
+    if (existing && existing.token === s.token) {
+      scene.setCreatureVisible(existing.instanceId, true)
+      if (!existing.visible) {
+        setActiveSpawn({ ...existing, visible: true })
+      }
+      return
+    }
+
+    // 다른 token → 기존 숨김 + 신규 로드
+    if (existing) {
+      scene.setCreatureVisible(existing.instanceId, false)
+    }
+
+    let cancelled = false
+    ;(async () => {
       try {
         const { root, animations } = await loader.load(
           resolveCreatureModelUrl({ model_url: s.model_url }),
         )
-        const scale = scaleForModelUrl(s.model_url)
-        root.scale.setScalar(scale)
+        if (cancelled) return
+        root.scale.setScalar(scaleForModelUrl(s.model_url))
         const instanceId = `inst-${s.token.slice(0, 8)}-${Date.now()}`
         root.userData.creatureInstanceId = instanceId
-        scene.spawnCreature(instanceId, root, animations, randomSpawnOffset())
-        const expiresAt = new Date(s.expires_at).getTime()
+        sceneRef.current?.spawnCreature(instanceId, root, animations, randomSpawnOffset())
         setActiveSpawn({
           token: s.token,
           instanceId,
@@ -386,64 +370,18 @@ export default function PlayPage() {
           creatureName: s.creature_name,
           rarity: s.creature_rarity,
           modelUrl: s.model_url,
-          expiresAt,
-          zoneId,
+          expiresAt: Date.parse(s.expires_at),
           captured: false,
           visible: true,
         })
-
-        // 토큰 만료 시 자동 정리
-        if (tokenExpiryTimerRef.current) clearTimeout(tokenExpiryTimerRef.current)
-        const ms = Math.max(0, expiresAt - Date.now())
-        tokenExpiryTimerRef.current = setTimeout(() => {
-          const current = activeSpawnRef.current
-          if (current && current.token === s.token) {
-            sceneRef.current?.setCreatureVisible(current.instanceId, false)
-            setActiveSpawn(null)
-          }
-        }, ms)
       } catch (e) {
-        setLastError(`load: ${e instanceof Error ? e.message : String(e)}`)
+        if (!cancelled) setLastError(`load: ${e instanceof Error ? e.message : String(e)}`)
       }
-    },
-    [phone, gps.position],
-  )
-
-  // zone enter/leave 콜백 등록 (단일 슬롯). useEffect cleanup 으로 재등록.
-  useEffect(() => {
-    if (!started) return
-    const unsubEnter = zoneDetection.onEnterZone(zoneId => {
-      triggerSpawn(zoneId, 'enter')
-    })
-    const unsubLeave = zoneDetection.onLeaveZone(() => {
-      const existing = activeSpawnRef.current
-      if (!existing) return
-      sceneRef.current?.setCreatureVisible(existing.instanceId, false)
-      setActiveSpawn(prev => (prev ? { ...prev, visible: false } : prev))
-    })
+    })()
     return () => {
-      unsubEnter()
-      unsubLeave()
+      cancelled = true
     }
-  }, [started, zoneDetection, triggerSpawn])
-
-  // 30초 폴링 백업 — zone 안에 있는데 activeSpawn.visible 이 false 이거나 null 이면 재호출
-  useEffect(() => {
-    if (!started) return
-    if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
-    pollingTimerRef.current = setInterval(() => {
-      const zoneId = zoneDetection.result.currentZoneId
-      if (!zoneId) return
-      const existing = activeSpawnRef.current
-      if (existing && existing.visible && existing.zoneId === zoneId) return
-      if (existing && existing.expiresAt > Date.now() && existing.zoneId === zoneId) return
-      triggerSpawn(zoneId, 'poll')
-    }, POLLING_INTERVAL_MS)
-    return () => {
-      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current)
-      pollingTimerRef.current = null
-    }
-  }, [started, zoneDetection.result.currentZoneId, triggerSpawn])
+  }, [scheduler.currentSpawn])
 
   // 캔버스 탭 — pickCreatureAt → 로컬 captured 토글 (실제 포획 API 는 Phase 4)
   const handleCanvasPointerDown = useCallback(
@@ -466,18 +404,32 @@ export default function PlayPage() {
   )
 
   const hudChipText = useMemo(() => {
-    if (!activeSpawn) return '스폰 대기중'
+    if (!activeSpawn || !activeSpawn.visible) return '스폰 대기중'
     if (activeSpawn.captured) return `포획 완료 · ${activeSpawn.creatureName}`
     return `스폰중 · ${activeSpawn.creatureName}`
   }, [activeSpawn])
 
-  const zoneStatusText = useMemo(() => {
+  const geofenceStatusText = useMemo(() => {
     if (permissions.gps !== 'granted') return 'GPS 권한 필요'
     if (!gps.position) return '위치 확인 중…'
-    if (!currentZoneId) return '구역 밖'
-    const z = zones.find(zz => zz.id === currentZoneId)
-    return z ? z.name : '구역 안'
-  }, [permissions.gps, gps.position, currentZoneId, zones])
+    if (!geofence.settings) return '설정 로딩…'
+    if (geofence.inside) return '축제장 안'
+    return `축제장까지 ${formatMeters(geofence.distanceToCenter)}`
+  }, [permissions.gps, gps.position, geofence])
+
+  const miniMapGeofence = useMemo(
+    () =>
+      geofence.settings
+        ? {
+            center: {
+              lat: geofence.settings.center_lat,
+              lng: geofence.settings.center_lng,
+            },
+            radiusM: geofence.settings.geofence_radius_m,
+          }
+        : null,
+    [geofence.settings],
+  )
 
   // ---- 렌더 ----
 
@@ -497,12 +449,12 @@ export default function PlayPage() {
           <p className={styles.introDesc}>
             시작 버튼을 누르면 자이로·카메라·위치 권한을 순서대로 요청합니다.
             <br />
-            구역에 진입하면 AR 캐릭터가 자동 소환됩니다.
+            축제장 안에 있을 때 AR 캐릭터가 시간·이동에 따라 자동 소환됩니다.
           </p>
           <ul className={styles.permList}>
             <li>1. 자이로 권한 (iOS)</li>
             <li>2. 카메라 권한 (후면 카메라 우선)</li>
-            <li>3. 위치 권한 (구역 판정용)</li>
+            <li>3. 위치 권한 (축제장 geofence 판정용)</li>
           </ul>
           {!phone && (
             <p className={styles.hint} style={{ color: '#C62828' }}>
@@ -527,14 +479,6 @@ export default function PlayPage() {
       </div>
     )
   }
-
-  const miniMapZones = zones.map(z => ({
-    id: z.id,
-    name: z.name,
-    center_lat: z.center_lat,
-    center_lng: z.center_lng,
-    radius_m: z.radius_m,
-  }))
 
   return (
     <div className={styles.root}>
@@ -566,18 +510,22 @@ export default function PlayPage() {
 
         <div className={styles.hud}>
           <div className={styles.hudChip}>{hudChipText}</div>
-          <div className={styles.hudChip}>{zoneStatusText}</div>
+          <div className={styles.hudChip}>{geofenceStatusText}</div>
         </div>
 
-        {/* 우측 하단 미니맵 */}
-        {permissions.gps === 'granted' && gps.position && (
+        {/* 우측 하단 미니맵 — geofence 설정 로드 후 렌더 */}
+        {permissions.gps === 'granted' && miniMapGeofence && (
           <div className={styles.miniMapBox}>
             <Suspense fallback={<div className={styles.miniMapLoading}>지도 로딩…</div>}>
               <MiniMap
-                center={{ lat: gps.position.lat, lng: gps.position.lng }}
-                zones={miniMapZones}
-                currentZoneId={currentZoneId}
-                currentAccuracy={gps.position.accuracy}
+                userPosition={
+                  gps.position
+                    ? { lat: gps.position.lat, lng: gps.position.lng }
+                    : null
+                }
+                geofence={miniMapGeofence}
+                inside={geofence.inside}
+                currentAccuracy={gps.position?.accuracy ?? 0}
               />
             </Suspense>
           </div>
@@ -589,11 +537,31 @@ export default function PlayPage() {
           </div>
         )}
 
-        {zonesError && (
+        {geofence.settingsError && (
           <div className={styles.gpsNotice} style={{ color: '#F59E0B' }}>
-            구역 로드 실패: {zonesError}
+            설정 로드 실패: {geofence.settingsError}
           </div>
         )}
+
+        {/* geofence 밖: 축제장 안내 오버레이 */}
+        {permissions.gps === 'granted' &&
+          gps.position &&
+          geofence.settings &&
+          !geofence.inside && (
+            <div className={styles.outsideOverlay}>
+              <div className={styles.outsideCard}>
+                <h2 className={styles.outsideTitle}>축제장에서 만나요</h2>
+                <p className={styles.outsideDesc}>
+                  {geofence.settings.name}
+                  <br />
+                  현장에 도착하면 AR 게임이 시작됩니다.
+                </p>
+                <p className={styles.outsideDist}>
+                  현 위치까지 거리: {formatMeters(geofence.distanceToCenter)}
+                </p>
+              </div>
+            </div>
+          )}
 
         {toast && <div className={styles.toast}>{toast}</div>}
 
@@ -604,7 +572,7 @@ export default function PlayPage() {
               fps={fps}
               cameraPermission={permissions.camera}
               gyroPermission={permissions.gyro}
-              spawnCount={activeSpawn ? 1 : 0}
+              spawnCount={activeSpawn && activeSpawn.visible ? 1 : 0}
               lastCapturedAt={lastCapturedAt}
               cameraResolution={cameraResolution}
               lastError={lastError}
@@ -618,10 +586,15 @@ export default function PlayPage() {
                     }
                   : null
               }
-              currentZoneId={currentZoneId}
               activeToken={activeSpawn?.token ?? null}
               activeTokenExpiresAt={activeSpawn?.expiresAt ?? null}
-              lastPollingAt={lastPollingAt}
+              settings={geofence.settings}
+              inside={geofence.inside}
+              distanceToCenter={geofence.distanceToCenter}
+              nextSpawnEta={scheduler.nextSpawnEta}
+              accumulatedDistanceM={scheduler.accumulatedDistanceM}
+              lastSpawnAt={scheduler.lastSpawnAt}
+              lastRejectedDelta={scheduler.lastRejectedDelta}
             />
           </Suspense>
         )}

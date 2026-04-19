@@ -6,6 +6,11 @@
  *  - phone 은 body 전달 (URL path 금지).
  *  - 응답은 ok:true | ok:false 디스크리미네이티드 유니온. 상위는 `.ok` 로 분기.
  *  - HTTP 4xx/5xx 네트워크 에러 시에도 최대한 동일 shape 으로 반환 (상위 코드 단순화).
+ *
+ * Phase 3-R2 재설계:
+ *  - `getArZones` 삭제 (ar_zones 테이블 자체 폐기).
+ *  - `getFestivalSettings` 신규 — `/api/ar/festival` 프록시.
+ *  - `postArSpawn` body 에서 `zone_id` 제거 (R1 에서 서버 이미 무시 중, R2 에서 시그니처 정리).
  */
 
 import { normalizePhone } from '../../../lib/phone'
@@ -22,7 +27,7 @@ export interface SpawnResponseOk {
     model_url: string
     thumbnail_url: string | null
     expires_at: string
-    /** true 면 기존 유효 토큰 재반환 (신규 발급 아님). Phase 3 폴링 백업 경로. */
+    /** true 면 기존 유효 토큰 재반환 (신규 발급 아님). 서버가 phone 기준으로 재사용 판정. */
     reused?: boolean
   }
 }
@@ -30,8 +35,7 @@ export interface SpawnResponseOk {
 export type SpawnFailureResult =
   | 'invalid_phone'
   | 'invalid_request'
-  | 'zone_not_active'
-  | 'no_creatures_in_zone'
+  | 'no_creatures'
   | 'server_error'
   | 'server_misconfigured'
   | 'method_not_allowed'
@@ -47,7 +51,6 @@ export type SpawnResponse = SpawnResponseOk | SpawnResponseFail
 
 export async function postArSpawn(params: {
   phone: string
-  zoneId: string
   lat: number
   lng: number
 }): Promise<SpawnResponse> {
@@ -57,7 +60,6 @@ export async function postArSpawn(params: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone: normalizePhone(params.phone),
-        zone_id: params.zoneId,
         client_lat: params.lat,
         client_lng: params.lng,
       }),
@@ -76,31 +78,45 @@ export async function postArSpawn(params: {
   }
 }
 
-export interface ArZoneDto {
+export interface FestivalSettingsDto {
   id: string
   name: string
   center_lat: number
   center_lng: number
-  radius_m: number
-  spawn_weight: number
+  geofence_radius_m: number
+  spawn_interval_sec: number
+  movement_bonus_distance_m: number
+  rarity_weight_common: number
+  rarity_weight_rare: number
+  rarity_weight_legendary: number
+  capture_token_ttl_sec: number
+  capture_cooldown_sec: number
+  mission_common_count: number
+  mission_rare_count: number
+  mission_legendary_count: number
+  active: boolean
+  updated_by: string | null
+  updated_at: string
 }
 
-export interface GetArZonesResponse {
-  zones: ArZoneDto[]
+export interface GetFestivalSettingsResponse {
+  settings: FestivalSettingsDto | null
   error?: string
 }
 
-export async function getArZones(): Promise<GetArZonesResponse> {
+export async function getFestivalSettings(): Promise<GetFestivalSettingsResponse> {
   try {
-    const response = await fetch('/api/ar/zones')
-    const json = (await response.json().catch(() => null)) as GetArZonesResponse | null
+    const response = await fetch('/api/ar/festival')
+    const json = (await response.json().catch(() => null)) as
+      | { settings: FestivalSettingsDto | null; error?: string }
+      | null
     if (!json) {
-      return { zones: [], error: `HTTP ${response.status}` }
+      return { settings: null, error: `HTTP ${response.status}` }
     }
-    return { zones: json.zones ?? [], error: json.error }
+    return { settings: json.settings ?? null, error: json.error }
   } catch (e) {
     return {
-      zones: [],
+      settings: null,
       error: e instanceof Error ? e.message : String(e),
     }
   }
