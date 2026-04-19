@@ -156,6 +156,50 @@ export class ArScene {
       animations.forEach(clip => mixer.clipAction(clip).play())
     }
     this.scene.add(wrapper)
+
+    // DEV 진단 훅: rare/legendary 자이로 미동작 + rare "움직이면 사라짐" 원인 분석용.
+    // 상시 유지. 프로덕션 번들은 import.meta.env.DEV === false 로 tree shake.
+    if (import.meta.env.DEV) {
+      console.groupCollapsed(`[AR][spawn-dump] id=${id}`)
+      const walk = (o: THREE.Object3D, depth: number) => {
+        const indent = '  '.repeat(depth)
+        const pos = o.position.toArray().map(v => v.toFixed(2)).join(',')
+        console.log(`  ${indent}${o.type} "${o.name}" pos=[${pos}]`)
+        o.children.forEach(c => walk(c, depth + 1))
+      }
+      console.log('tree:')
+      walk(root, 0)
+      animations.forEach((clip, i) => {
+        console.log(
+          `clip[${i}] "${clip.name}" dur=${clip.duration.toFixed(2)}s tracks=${clip.tracks.length}`,
+        )
+        clip.tracks.forEach(t => {
+          console.log(`    ${t.name}  [${t.constructor.name}]  times=${t.times.length}`)
+        })
+      })
+      console.log('playing clips:', animations.map(a => a.name))
+      console.log('t=0:', {
+        wrapper: wrapper.position.toArray(),
+        root: root.position.toArray(),
+        firstChild: root.children[0]
+          ? { name: root.children[0].name, pos: root.children[0].position.toArray() }
+          : null,
+      })
+      setTimeout(() => {
+        console.log(`[AR][spawn-dump-t1s] id=${id}`, {
+          wrapper: wrapper.position.toArray().map(v => +v.toFixed(3)),
+          root: root.position.toArray().map(v => +v.toFixed(3)),
+          firstChild: root.children[0]
+            ? {
+                name: root.children[0].name,
+                pos: root.children[0].position.toArray().map(v => +v.toFixed(3)),
+              }
+            : null,
+        })
+      }, 1000)
+      console.groupEnd()
+    }
+
     this.creatures.set(id, { id, wrapper, root, mixer })
   }
 
