@@ -65,7 +65,7 @@ import type { PermissionState } from '../hooks/useArPermissions'
 import { resolveCreatureModelUrl } from '../lib/assets'
 import type { ArRarity } from '../lib/assets'
 import { formatPhone, isValidPhone, loadLastPhone, saveLastPhone } from '../../../lib/phone'
-import { isDebugEnabled } from '../lib/debugFlag'
+import { readDebugFlag } from '../lib/debugFlag'
 import styles from './PlayPage.module.css'
 
 // DEV 빌드 또는 ?debug=1 / localStorage 플래그가 있을 때만 lazy chunk 를 실제 로드.
@@ -585,7 +585,7 @@ export default function PlayPage() {
 
         {toast && <div className={styles.toast}>{toast}</div>}
 
-        {isDebugEnabled && (
+        {readDebugFlag() && (
           <Suspense fallback={null}>
             <DevDiagnosticPanel
               level={level}

@@ -23,7 +23,7 @@ import { useEffect, useState } from 'react'
 import type { FallbackLevel } from '../lib/detectFallbackLevel'
 import type { PermissionState } from '../hooks/useArPermissions'
 import type { FestivalSettingsDto } from '../lib/api'
-import { isDebugEnabled } from '../lib/debugFlag'
+import { readDebugFlag } from '../lib/debugFlag'
 import styles from './DevDiagnosticPanel.module.css'
 
 type MemoryWithHeap = Performance & {
@@ -91,7 +91,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const [tokenCountdown, setTokenCountdown] = useState<string>('—')
 
   useEffect(() => {
-    if (!isDebugEnabled) return
+    if (!readDebugFlag()) return
     const update = () => setMemoryText(formatMemoryMB())
     update()
     const id = setInterval(update, 1000)
@@ -99,7 +99,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   }, [])
 
   useEffect(() => {
-    if (!isDebugEnabled) return
+    if (!readDebugFlag()) return
     const tick = () => {
       const exp = props.activeTokenExpiresAt
       if (!exp) {
@@ -114,7 +114,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     return () => clearInterval(id)
   }, [props.activeTokenExpiresAt])
 
-  if (!isDebugEnabled) return null
+  if (!readDebugFlag()) return null
 
   if (!open) {
     return (
