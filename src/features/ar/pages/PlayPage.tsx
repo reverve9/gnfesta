@@ -64,7 +64,7 @@ import {
 import type { PermissionState } from '../hooks/useArPermissions'
 import { resolveCreatureModelUrl } from '../lib/assets'
 import type { ArRarity } from '../lib/assets'
-import { loadLastPhone } from '../../../lib/phone'
+import { formatPhone, isValidPhone, loadLastPhone, saveLastPhone } from '../../../lib/phone'
 import styles from './PlayPage.module.css'
 
 // DEV 패널은 프로덕션 번들에서 제외되도록 lazy + import.meta.env.DEV 가드.
@@ -222,10 +222,11 @@ export default function PlayPage() {
   // "시작" 버튼 — iOS gesture chain: gyro → camera → gps
   const handleStart = useCallback(async () => {
     if (booting || started) return
-    if (!phone) {
-      setLastError('전화번호가 필요합니다')
+    if (!isValidPhone(phone)) {
+      setLastError('전화번호를 올바른 형식으로 입력해주세요 (010-XXXX-XXXX)')
       return
     }
+    saveLastPhone(phone)
     setBooting(true)
     setLastError(null)
     try {
@@ -456,16 +457,32 @@ export default function PlayPage() {
             <li>2. 카메라 권한 (후면 카메라 우선)</li>
             <li>3. 위치 권한 (축제장 geofence 판정용)</li>
           </ul>
-          {!phone && (
-            <p className={styles.hint} style={{ color: '#C62828' }}>
-              AR 탐험은 전화번호가 필요합니다. 먼저 스탬프 랠리 또는 설문 조사에서 전화번호를 입력해주세요.
-            </p>
+          {!isValidPhone(phone) && (
+            <div className={styles.phoneField}>
+              <label className={styles.phoneLabel} htmlFor="ar-phone-input">
+                전화번호
+              </label>
+              <input
+                id="ar-phone-input"
+                className={styles.phoneInput}
+                type="tel"
+                inputMode="numeric"
+                placeholder="010-0000-0000"
+                value={phone}
+                onChange={e => setPhone(formatPhone(e.target.value))}
+                maxLength={13}
+                autoComplete="tel"
+              />
+              <p className={styles.phoneHint}>
+                입력하신 번호는 포획 기록·경품 발급에 사용됩니다.
+              </p>
+            </div>
           )}
           <button
             type="button"
             className={styles.startBtn}
             onClick={handleStart}
-            disabled={booting || !phone}
+            disabled={booting || !isValidPhone(phone)}
           >
             {booting ? '권한 요청 중…' : '시작'}
           </button>
