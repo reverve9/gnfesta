@@ -1,6 +1,6 @@
-# Phase 3 빌드 핸드오프 (R1 완료·push 완료 · R2 완료·ⓑ 검증 대기 · R3 프롬프트 대기)
+# Phase 3 빌드 핸드오프 (R1 완료·push · R2 ⓑ 진행 중 2/5 통과 · R3 프롬프트 대기)
 
-> **상태**: Phase 3-R1 (스키마·RPC·API·어드민 UI) 구현·검증·push 완료. Phase 3-R2 (클라이언트 geofence + 스폰 스케줄러) 구현·로컬 검증·커밋 완료. push 는 체크포인트 ⓑ(사용자 E2E 검증) 통과 후. R3 프롬프트 수신 전 R3 착수 금지.
+> **상태**: R1 완료·검증·push 완료. R2 구현·로컬 검증·push 완료. R2 체크포인트 ⓑ (E2E 5건) 진행 중 — 테스트 1·2 통과, 3/4/5 다음 세션 재개. 현재 main HEAD `b93eb6f` (Production alias https://gnfesta.vercel.app/ar 배포됨). R3 프롬프트 수신 전 R3 착수 금지.
 > **작성 기준**: `AR_MODULE_PROJECT_BRIEF.md` v0.3, `phase3_redesign.md` v1.0, `PHASE_3_R1_PROMPT.md` v1.0, `PHASE_3_R2_PROMPT.md` v1.0, `phase2_build.md` v1.2
 
 ---
@@ -232,7 +232,10 @@ geofence 밖 → scheduler enabled=false 자동 리셋 → currentSpawn=null →
 
 | 해시 | 제목 | 상태 |
 |---|---|---|
-| `d4825df` | feat(ar): Phase 3-R2 — useFestivalGeofence + useSpawnScheduler 훅 + PlayPage 재통합 + 다중 zone 로직 삭제 | ✅ 로컬 · ⓑ 통과 후 push |
+| `b93eb6f` | fix(ar): PlayPage 포획 핸들러 currentSpawn 연결 복원 — R2 재통합 누락분 | ✅ push 완료 (테스트 2 통과 포함) |
+| `02a6425` | feat(ar): PlayPage 엔트리에 전화번호 직접 입력 필드 추가 — 스탬프/설문 우회 진입 지원 | ✅ push 완료 |
+| `b92c8b6` | docs(ar): phase3_build v0.4 → v0.5 — R1 ⓐ 통과·push 완료 + R2 완료 + R3 진입 체크리스트 확장 | ✅ push 완료 |
+| `d4825df` | feat(ar): Phase 3-R2 — useFestivalGeofence + useSpawnScheduler 훅 + PlayPage 재통합 + 다중 zone 로직 삭제 | ✅ push 완료 |
 | `7c259c1` | style(ar): /ar/settings 어드민 UI 톤앤매너 정비 — 기존 어드민 페이지 일관성 복원 | ✅ push 완료 |
 | `8948b27` | docs(ar): phase3_build v0.3 → v0.4 — R1 완료 반영 + 후속 보안 작업 + capture_creature DROP 기록 | ✅ push 완료 |
 | `0edb681` | feat(ar): Phase 3-R1 — ar_festival_settings + 설정 RPC + 어드민 UI + ar_zones 삭제 | ✅ push 완료 |
@@ -258,9 +261,17 @@ geofence 밖 → scheduler enabled=false 자동 리셋 → currentSpawn=null →
 
 **⓪' R2 로컬 (통과)** — `tsc` EXIT=0 · `vite build` 369ms
 
-**ⓑ R2 사용자 E2E 검증 (⏸ 대기)** — 절차는 `PHASE_3_R2_PROMPT.md` §5 참조. Chrome DevTools Location 시뮬레이션 5건 (지점 A/B/C + 이동 트리거 + 어드민 값 변경 반영).
+**ⓑ R2 사용자 E2E 검증 (🟡 진행 중 2/5 통과)** — 절차는 `PHASE_3_R2_PROMPT.md` §5 참조
 
-**ⓒ R3 (R2 승인 후)**
+| # | 테스트 | 상태 | 메모 |
+|---|---|---|---|
+| 1 | 지점 A (강릉역 `37.7632, 128.8996`, geofence 밖) | ✅ 통과 | inside=false · 오버레이 · ArScene mount 유지 확인 |
+| 2 | 지점 B (경포 중앙 `37.7985, 128.8990`, 안) + 포획 | ✅ 통과 | 시간 트리거 45s · common/rare/legendary 전부 정상 · 탭→소멸+토스트+45s 재스폰 (b93eb6f 적용 이후) |
+| 3 | 이동 트리거 (B→A 천천히 이동, `accumulatedDistanceM` 50m 도달) | 🔜 다음 세션 | `MOVEMENT_OUTLIER_CAP_M=100` 내부 상수 동작 (`lastRejectedDelta`) 도 같이 관찰 |
+| 4 | 어드민 값 변경 반영 (`spawn_interval_sec=10` → 새로고침 후 적용) | 🔜 다음 세션 | 세션 재시작 필수 (세션 중 실시간 반영 미지원 — 의도된 단순화, M-4) |
+| 5 | Phase 2 회귀 (자이로 · 카메라 · 포획 토스트) | 🔜 다음 세션 | rare/legendary 자이로 이슈는 Phase 5 이월 (확인만) |
+
+**ⓒ R3 (R2 완전 통과 후)**
 
 ---
 
@@ -289,6 +300,14 @@ R2 에서 `detectZoneEntry.ts` 실삭제. 단일 geofence 전환 후 TRUST_K 공
 
 `scheduler.currentSpawn` 이 바뀔 때마다 `spawnCreature(instanceId, ...)` 로 신규 인스턴스 생성 + 이전 인스턴스는 `setCreatureVisible(false)` 로 숨김만. 세션 중 창출된 모든 인스턴스가 scene.creatures Map 에 누적 — Phase 3-A~F 부터 이어진 기존 설계. ArScene 불가침 원칙으로 destroy API 추가를 Phase 4/5 로 이관.
 
+### M-6. Three.js `PropertyBinding` 경고 — Phase 2 기술 부채 #1 재현 (기능 영향 없음)
+
+R2 체크포인트 ⓑ 테스트 2 수행 중 rare/legendary 스폰 시점에 콘솔에 `PropertyBinding` 계열 경고가 출력되는 현상을 사용자가 관측. **Phase 2 기술 부채 #1 (CreatureLoader clone 공유 참조 → 애니메이션 트랙 바인딩 충돌)의 재현**으로 확정. 포획·스폰·재스폰 UX 동작에는 영향 없음.
+
+- 처리 시점: **Phase 5 실 에셋 도입 시 재검증** (기존 계획 유지. R2/R3 에서 건드리지 않음).
+- ArScene · CreatureLoader 불가침 원칙으로 R2 에서는 로그 분석만.
+- Phase 5 에서 asset loader 재설계 + clone 격리 방식 결정 시 자연 해소 예상.
+
 ---
 
 ## 🔜 다음 단계 (체크포인트 ⓑ 통과 후)
@@ -300,16 +319,58 @@ R2 에서 `detectZoneEntry.ts` 실삭제. 단일 geofence 전환 후 TRUST_K 공
 
 ---
 
-## 🔜 다음 세션 진입 절차 (혹시 세션 단절 시)
+## 🔜 다음 세션 재개 지시 (우선순위 1 — 테스트 3 부터)
 
-1. **필독**:
-   - 본 문서 (phase3_build.md v0.5)
-   - `phase3_redesign.md` v1.0
-   - `PHASE_3_R1_PROMPT.md` / `PHASE_3_R2_PROMPT.md` v1.0 (완료됨 — 역사)
-   - 향후 R3 프롬프트 (사용자 전달)
-2. **코드 수정 금지**: R3 프롬프트 수신 전까지 서버 스폰 정책·DB 스키마·어드민 UI 신규 필드 작업 금지.
-3. **Phase 2 회귀 보호 유지**: ArScene 자이로 이슈 / 기술 부채 #1 (CreatureLoader clone 공유 참조) 경계.
+**재개 지점**: R2 체크포인트 ⓑ 테스트 3 (이동 트리거)
+**테스트 URL**: https://gnfesta.vercel.app/ar (Production alias — 항상 최신 main, 현재 `b93eb6f`)
+**현 상태**: 테스트 1·2 통과, 테스트 3·4·5 미수행
+
+### 테스트 3 실행 절차
+
+1. Chrome DevTools → More tools → Sensors → Location → `37.7985, 128.8990` (지점 B, geofence 중심)
+2. PlayPage 진입 → 시작 → 첫 스폰 발생(45s)까지 대기
+3. DevPanel 확인 (`Moved: 0m / 50m`, `Next spawn: ~45s`)
+4. **Location 값을 수동으로 천천히 변경** — 예: `37.7985, 128.8995` → `37.7985, 128.9000` → `37.7985, 128.9005` 식으로 `0.0005` 증분 (한 변경당 약 40~50m)
+5. 이벤트 간 delta > 100m 없이 `accumulatedDistanceM` 이 50m 도달하면 **즉시 새 스폰** 발생 확인
+6. DevPanel `Last spawn` 갱신 + `Moved` 0m 리셋 + 시간 타이머 45s 재시작 확인
+
+### 병행 관찰 (이상치 필터 동작)
+
+- Location 값을 한 번에 크게 변경 (예: `37.7985, 128.8990` → `37.7985, 128.9100` = ~1km 점프)
+- DevPanel `GPS spike` 행에 `distanceM, timestamp` 기록되고 `accumulatedDistanceM` 은 증가하지 않는지 확인
+- 상한 `MOVEMENT_OUTLIER_CAP_M = 100` (useSpawnScheduler 내부 상수) 정상 작동 확인
+
+### 테스트 4 (어드민 값 변경 반영)
+
+1. `/admin/ar/settings` (가능하면 별도 탭) 에서 `spawn_interval_sec = 10` 저장
+2. PlayPage **전체 새로고침** (의도된 세션 재시작 패턴, M-4)
+3. 새 스폰 주기가 10s 로 동작 확인
+4. 원복: `spawn_interval_sec = 45`
+
+### 테스트 5 (Phase 2 회귀)
+
+- 자이로 초기화 / 카메라 스트림 / 포획 토스트 정상
+- rare/legendary 자이로 이슈 재현 여부는 **확인만** (수정 금지 — Phase 5 범위)
+- M-6 PropertyBinding 경고 관찰되지만 포획 UX 영향 없어야 정상
+
+### 5건 전부 통과 후
+
+1. 사용자 승인 → `phase3_build.md` **v0.6 승격** (현재는 v0.5 내 메모만 추가된 상태)
+2. R3 프롬프트 수신 대기 (서버 스폰 정책 재정의 + MOVEMENT_OUTLIER_CAP 설정화 등)
+
+### 필독 자료
+
+- 본 문서 (`phase3_build.md` v0.5)
+- `phase3_redesign.md` v1.0
+- `PHASE_3_R1_PROMPT.md` · `PHASE_3_R2_PROMPT.md` (완료분 — 역사)
+- 향후 R3 프롬프트
+
+### 금지 원칙 유지
+
+- R3 프롬프트 수신 전까지 서버 스폰 정책·DB 스키마·어드민 UI 신규 필드 작업 금지.
+- ArScene · CreatureLoader · GyroController · CameraStream 불가침.
+- M-5 (ArScene 인스턴스 누적) / M-6 (PropertyBinding 경고) 는 Phase 5 이관 그대로.
 
 ---
 
-*Phase 3 빌드 핸드오프 v0.5 — R1·R2 완료 · 체크포인트 ⓑ 대기 · R3 체크리스트 확장 (MOVEMENT_OUTLIER_CAP 설정화 포함) — 2026-04-19*
+*Phase 3 빌드 핸드오프 v0.5 — R1·R2 완료·push · 체크포인트 ⓑ 진행 중 (2/5 통과, 3·4·5 다음 세션) · M-6 PropertyBinding 기록 · v0.6 승격은 ⓑ 완전 통과 후 — 2026-04-19*
