@@ -79,6 +79,46 @@ Supabase Auth 대신 `sessionStorage` + UI 가드로 어드민 보호.
   - `festivals/gnfesta/guests/<uuid>.png` (게스트 사진)
   - `booths/<booth_id>/...`, `menus/<menu_id>/...`, `notices/<uuid>.png` 등 자유
 
+## Phase 3 테스트 seed — AR 구역·캐릭터
+
+AR 모듈 Phase 3 개발에서 구역 진입/포획 플로우 검증을 위해 테스트 데이터 3+3 row 를 넣는다.
+
+**파일**: `supabase/seeds/ar_test_zones.sql`
+
+**내용**:
+- `ar_zones` 3 row — 강릉역 / 경포대 / 중앙시장 (반경 50m, 간격 >500m)
+- `ar_creatures` 3 row — 상자(common) / 사람(rare) / 여우(legendary). `model_url` 은 상대 경로 (Phase 2 Khronos CDN 플레이스홀더, Phase 5 에서 R2 로 교체)
+
+**실행**:
+
+1. Studio SQL Editor 에서 실행 (권장):
+   - 프로젝트 `kjtplptbkjlchfmovgph` → SQL Editor → 파일 내용 복붙 → Run
+2. 또는 Supabase CLI:
+   ```bash
+   psql "$DATABASE_URL" -f supabase/seeds/ar_test_zones.sql
+   ```
+
+**주의 (멱등 아님)**: `ar_zones` / `ar_creatures` 에 UNIQUE(name) 제약이 없어 재실행 시 row 가 중복 생성됨. 재적용 전 삭제:
+
+```sql
+DELETE FROM ar_zones     WHERE name LIKE '%테스트존';
+DELETE FROM ar_creatures WHERE name IN ('상자 (일반)', '사람 (희귀)', '여우 (전설)');
+```
+
+**검증**:
+```sql
+SELECT id, name, center_lat, center_lng, radius_m FROM ar_zones WHERE active;
+SELECT id, name, rarity, model_url FROM ar_creatures WHERE active ORDER BY display_order;
+```
+
+**DevTools 위치 시뮬레이션 좌표** (Chrome `Sensors` 패널 또는 Safari `Simulate Location`):
+- 강릉역:      `37.7632, 128.8996`
+- 경포대:      `37.8038, 128.8987`
+- 중앙시장:    `37.7525, 128.8781`
+- 구역 밖:     `37.7800, 128.8900` (어느 존 반경에도 속하지 않음)
+
+---
+
 ## 참고 — 원본 Moosan Seeds
 
 원본 마이그레이션 파일은 `_DEV/reference/moosan_seeds/` 에 백업됨 (gitignore).
