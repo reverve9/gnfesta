@@ -32,6 +32,8 @@ export interface ArSceneOptions {
 
 interface SpawnedCreature {
   id: string
+  /** 자이로 position lerp 적용 대상. gltf root 를 자식으로 감싸 AnimationMixer 의 root 트랙 덮어쓰기와 분리. */
+  wrapper: THREE.Object3D
   root: THREE.Object3D
   mixer: THREE.AnimationMixer | null
 }
@@ -146,13 +148,15 @@ export class ArScene {
   ): void {
     if (this.disposed || !this.scene) return
     if (this.creatures.has(id)) return
-    if (position) root.position.copy(position)
+    const wrapper = new THREE.Object3D()
+    if (position) wrapper.position.copy(position)
+    wrapper.add(root)
     const mixer = animations.length > 0 ? new THREE.AnimationMixer(root) : null
     if (mixer) {
       animations.forEach(clip => mixer.clipAction(clip).play())
     }
-    this.scene.add(root)
-    this.creatures.set(id, { id, root, mixer })
+    this.scene.add(wrapper)
+    this.creatures.set(id, { id, wrapper, root, mixer })
   }
 
   despawnCreature(id: string): void {
@@ -160,7 +164,8 @@ export class ArScene {
     if (!c || !this.scene) return
     c.mixer?.stopAllAction()
     c.mixer?.uncacheRoot(c.root)
-    this.scene.remove(c.root)
+    this.scene.remove(c.wrapper)
+    c.wrapper.remove(c.root)
     // TODO(Phase 7): disposeObject() 는 clone 된 Mesh 의 geometry/material 을
     // 공격적으로 dispose 한다. CreatureLoader 캐시의 원본이 리소스를 참조 공유하므로
     // 같은 url 재로드 시 원본 불능화 가능. 참조 카운트 또는 per-instance 소유권 도입 필요.
@@ -216,7 +221,7 @@ export class ArScene {
     let bestId: string | null = null
     let bestDist = Infinity
     for (const c of this.creatures.values()) {
-      const hits = this.raycaster.intersectObject(c.root, true)
+      const hits = this.raycaster.intersectObject(c.wrapper, true)
       if (hits.length > 0 && hits[0].distance < bestDist) {
         bestDist = hits[0].distance
         bestId = c.id
@@ -244,12 +249,14 @@ export class ArScene {
     const offset = this.gyro?.getOffset()
     for (const c of this.creatures.values()) {
       c.mixer?.update(delta)
+      // 자이로 lerp 는 wrapper 에 적용. AnimationMixer 가 root 노드 position 트랙을
+      // 매 프레임 덮어쓰는 모델(CesiumMan/Fox 등)에서도 wrapper 는 영향받지 않음.
       if (offset) {
-        c.root.position.x += (offset.tx - c.root.position.x) * GYRO_DAMPING
-        c.root.position.y += (offset.ty - c.root.position.y) * GYRO_DAMPING
+        c.wrapper.position.x += (offset.tx - c.wrapper.position.x) * GYRO_DAMPING
+        c.wrapper.position.y += (offset.ty - c.wrapper.position.y) * GYRO_DAMPING
       } else {
-        c.root.position.x += (0 - c.root.position.x) * GYRO_DAMPING
-        c.root.position.y += (0 - c.root.position.y) * GYRO_DAMPING
+        c.wrapper.position.x += (0 - c.wrapper.position.x) * GYRO_DAMPING
+        c.wrapper.position.y += (0 - c.wrapper.position.y) * GYRO_DAMPING
       }
     }
 
