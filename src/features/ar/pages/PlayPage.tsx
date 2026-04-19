@@ -65,12 +65,12 @@ import type { PermissionState } from '../hooks/useArPermissions'
 import { resolveCreatureModelUrl } from '../lib/assets'
 import type { ArRarity } from '../lib/assets'
 import { formatPhone, isValidPhone, loadLastPhone, saveLastPhone } from '../../../lib/phone'
+import { isDebugEnabled } from '../lib/debugFlag'
 import styles from './PlayPage.module.css'
 
-// DEV 패널은 프로덕션 번들에서 제외되도록 lazy + import.meta.env.DEV 가드.
-const DevDiagnosticPanel = import.meta.env.DEV
-  ? lazy(() => import('../components/DevDiagnosticPanel'))
-  : null
+// DEV 빌드 또는 ?debug=1 / localStorage 플래그가 있을 때만 lazy chunk 를 실제 로드.
+// Production 번들은 정상 분리(분리된 chunk 는 플래그가 true 일 때만 요청됨).
+const DevDiagnosticPanel = lazy(() => import('../components/DevDiagnosticPanel'))
 
 // MiniMap 은 Leaflet 번들을 포함하므로 lazy 로 PlayPage 메인 청크 분리.
 const MiniMap = lazy(() => import('../components/MiniMap'))
@@ -585,7 +585,7 @@ export default function PlayPage() {
 
         {toast && <div className={styles.toast}>{toast}</div>}
 
-        {DevDiagnosticPanel && (
+        {isDebugEnabled && (
           <Suspense fallback={null}>
             <DevDiagnosticPanel
               level={level}

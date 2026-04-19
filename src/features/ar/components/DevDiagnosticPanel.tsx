@@ -1,15 +1,16 @@
 /**
- * DEV 전용 AR 진단 패널.
+ * AR 진단 패널 (DEV 상시 / Production 조건부).
  *
  * 역할:
  *  - /ar/play 하단에 반투명 오버레이로 표시
- *  - `import.meta.env.DEV` 가드 뒤에서 dynamic import 되어 프로덕션 번들 제외
+ *  - `isDebugEnabled` (DEV || `?debug=1` || localStorage `__ar_debug__`) 가드 뒤에서
+ *    dynamic import 되어 chunk 는 플래그가 true 일 때만 실제 요청됨.
  *  - 탭 영역(스폰 버튼 dock) 과 겹치지 않도록 좌측 정렬·접이식
  *
- * 프로덕션 번들 제거 원칙:
- *  - PlayPage 에서는 `import.meta.env.DEV && ...` 로 감싼 lazy(() => import(...))
- *    또는 조건부 dynamic import 로 이 컴포넌트를 로드한다.
- *  - 이 파일 자체도 `import.meta.env.DEV` 런타임 가드를 함께 두어 2중 안전.
+ * 번들 노출 원칙:
+ *  - PlayPage 에서 `isDebugEnabled && ...` 로 감싼 lazy(() => import(...)) 사용.
+ *  - 이 파일 자체도 `isDebugEnabled` 런타임 가드를 함께 두어 2중 안전 (직접 import 방지).
+ *  - Phase 3-R2 체크포인트 ⓑ · Phase 7 QA 현장 검증 임시 조치. 외부 연동(Sentry/Analytics) 금지.
  *
  * Phase 3-R2 재설계 (필드 변경):
  *  - `currentZoneId` · `lastPollingAt` 제거 (다중 zone 모델 폐기).
@@ -22,6 +23,7 @@ import { useEffect, useState } from 'react'
 import type { FallbackLevel } from '../lib/detectFallbackLevel'
 import type { PermissionState } from '../hooks/useArPermissions'
 import type { FestivalSettingsDto } from '../lib/api'
+import { isDebugEnabled } from '../lib/debugFlag'
 import styles from './DevDiagnosticPanel.module.css'
 
 type MemoryWithHeap = Performance & {
@@ -89,7 +91,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const [tokenCountdown, setTokenCountdown] = useState<string>('—')
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!isDebugEnabled) return
     const update = () => setMemoryText(formatMemoryMB())
     update()
     const id = setInterval(update, 1000)
@@ -97,7 +99,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   }, [])
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!isDebugEnabled) return
     const tick = () => {
       const exp = props.activeTokenExpiresAt
       if (!exp) {
@@ -112,7 +114,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     return () => clearInterval(id)
   }, [props.activeTokenExpiresAt])
 
-  if (!import.meta.env.DEV) return null
+  if (!isDebugEnabled) return null
 
   if (!open) {
     return (
