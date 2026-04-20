@@ -1,6 +1,6 @@
-# Phase 4 빌드 핸드오프 (capture · mission · collection — 구현·로컬·push 완료 · 체크포인트 ⓓ 검증 대기)
+# Phase 4 빌드 핸드오프 (capture · mission · collection — 구현·로컬 검증·DB 0019 원격 적용·체크포인트 ⓓ 4영역 전부 통과)
 
-> **상태**: Phase 3-R1/R2/R3 완료 (phase3_build.md v0.7 · 체크포인트 ⓒ 5/5 통과). **Phase 4 코드 구현·로컬 검증·push 완료 (2026-04-20, 커밋 `8375dd0`)**. DB 마이그레이션 `0019` 원격 적용 대기 · 체크포인트 ⓓ 사용자 검증 대기.
+> **상태**: Phase 3-R1/R2/R3 완료 (phase3_build.md v0.7 · 체크포인트 ⓒ 5/5 통과). **Phase 4 구현·로컬 검증·DB 마이그 `0019` 원격 적용·체크포인트 ⓓ 4영역 전부 통과 완료 (2026-04-20, 코드 커밋 `8375dd0`)**. Phase 5 프롬프트 대기.
 > **작성 기준**: `AR_MODULE_PROJECT_BRIEF.md` v0.3, `PHASE_4_PROMPT.md` v1.0, `phase3_build.md` v0.7
 
 ---
@@ -141,7 +141,11 @@ PlayPage.handleCanvasPointerDown:
 
 ---
 
-## 🟡 체크포인트 ⓓ 사용자 검증 대기
+## 체크포인트 ⓓ 검증 — §11-A 초안 + §11-B 실 결과
+
+> **주의**: 이하 §11-A 는 v0.1 작성 시점 **초안 제안**으로 보존. 실제 수행 결과는 §11-B 참조.
+
+### §11-A. 검증 계획 초안 (v0.1 시점 제안)
 
 > 체크포인트 ⓓ 상세 절차는 별도 사용자 프롬프트로 수신 예정. 아래는 Claude Code 측 제안 초안.
 
@@ -197,6 +201,19 @@ Production alias `https://gnfesta.vercel.app` + Vercel Protection Bypass Token `
 - 같은 토큰 재탭 테스트 (duplicate) → 토스트 "이미 포획한 개체예요" + DevPanel `Server reject: duplicate` 행
 - 상단 "내 도감" 버튼 누르면 `/ar/collection` 이동 정상
 
+### §11-B. 검증 결과 (2026-04-20, ✅ 4영역 전부 통과)
+
+| 영역 | 결과 |
+|---|---|
+| §2-1 DB 4쿼리 | ✅ `velocity_cap_kmh` 컬럼 (integer / default 50 / NOT NULL) · `capture_creature` 시그니처 (args 5개 + jsonb) · 본문 키워드 8/8 true · `update_festival_settings` JSONB 불변 |
+| §2-2 curl 6건 | ✅ 정상 200 (`capture_id:3, grade:common`) / duplicate 409 (`capture_id` 일치) / invalid_token 404 / outside_geofence 403 (`distance_m:4281`) / expired 410 (`TTL=2, sleep 4`) / velocity_anomaly 403 (`cap=1, speed_kmh:1`) |
+| §2-3 어드민 UI 5항목 | ✅ velocity 필드 존재 · 힌트 문구 · 미션 sub 문구 갱신 · 범위검증 [1, 500] · DB 교차검증 (특이값 37 저장·원복) · DevPanel velocity 행 표시 |
+| §2-4 클라 E2E | ✅ DevPanel 정상 (`VELOCITY CAP 50km/h`) · 정상 포획 플로우 · 경품 모달 (`COMMON AR-7EUDR6`) · CollectionPage (진척도·썸네일·경품 코드 "매표소 제시" 안내) · HUD "내 도감" 버튼 네비게이션 |
+
+**검증 환경 임시 설정 원복 완료**: `capture_token_ttl_sec=60`, `velocity_cap_kmh=50`, `mission_common_count=10` 등 기본값 전부 원복 확인.
+
+→ **체크포인트 ⓓ 4영역 완전 통과 판정**. Phase 5 프롬프트 대기 단계 진입.
+
 ---
 
 ## 📝 메모 (phase3_build.md 에서 승계 · Phase 4 이후 관리)
@@ -210,19 +227,23 @@ Production alias `https://gnfesta.vercel.app` + Vercel Protection Bypass Token `
 | M-5 | ArScene 인스턴스 누적 | Phase 5 이관 (Q2=B 확정) |
 | M-6 | 연속 동일 등급 포획 실패 (PropertyBinding) | Phase 5 실 에셋 도입 시 재검증. Phase 3.5 격상 없음 |
 | M-7 (신규) | `ar_capture_attempts` 로그 미작성 | Phase 4 RPC 는 attempts 에 기록하지 않음. `ar_capture_attempts.result` CHECK 제약 enum 이 신규 reason (expired / outside_geofence / velocity_anomaly) 과 맞지 않아 스키마 불변 원칙상 보류. Phase 6+ 어드민 감사 범위에서 enum 확장 + 로깅 재도입 검토 |
+| M-8 (신규) | `speed_kmh` 응답 필드 정수 캐스팅 | velocity 판정 내부는 실수 연산, 응답 payload 만 `floor(...)::int` 로 손실. Phase 6+ 어드민 정밀도 패스에서 검토. 운영상 무영향 |
+| M-9 (신규) | PlayPage 상단 HUD "내 도감" 버튼 UX | 위치·어떤 페이지에 노출할지 디자인 이슈. 별도 UX 패스 논의 대상. 기능(버튼 존재·이동 동작)은 정상 |
+| SW 에러 관찰 | `?debug=` 쿼리 접근 시 `sw.js:17 Failed to fetch` (PWA Service Worker) | Phase 7 QA 에서 확인, 런타임 무영향 |
 
 ---
 
 ## 🔜 다음 단계
 
-현재 main HEAD `8375dd0` (Phase 4 코드 push 완료). 본 doc 커밋 후 main HEAD 는 본 doc 커밋으로 이동.
+현재 코드 HEAD `8375dd0` (Phase 4 코드 본체). 본 v0.2 치환 doc 커밋이 main HEAD 갱신.
 
 ### 다음 세션 재개 순서
 
-1. ⏸ **DB 마이그레이션 원격 적용** — Supabase SQL Editor 또는 `supabase db push` 로 `supabase/migrations/0019_ar_capture_velocity.sql` 적용. 기존 active row 는 `velocity_cap_kmh=50` 로 자동 채워짐. seed no-op.
-2. ⏸ **체크포인트 ⓓ 프롬프트 수신** — 사용자가 §6-1~§6-4 또는 그에 상응하는 검증 절차 전달 → 실행 → 결과 보고.
-3. ⏸ **검증 결과 수신 → 본 문서 v0.1 → v0.2 치환** — 체크포인트 ⓓ 판정표 결과 반영. 부수 발견은 M-8 이하로 추가.
-4. 🚫 **Phase 5 착수 금지** — 체크포인트 ⓓ 통과 + Phase 5 프롬프트 수신 전까지 실 에셋 도입·CreatureLoader 재설계 금지.
+1. ✅ **DB 마이그 `0019` 원격 적용 완료**
+2. ✅ **체크포인트 ⓓ 4영역 전부 통과** (§11-B 참조)
+3. ✅ **v0.1 → v0.2 치환 완료** (본 문서)
+4. ⏸ **Phase 5 프롬프트 수신 대기**
+5. 🚫 **Phase 5 착수 금지** — 프롬프트 수신 전까지 실 에셋 도입·CreatureLoader 재설계 금지. Phase 5 범위는 프롬프트 작성 시점에 별도 논의 (M-5/M-6 재검증 기준 포함)
 
 ### Phase 4 완결 후에도 유지되는 가드
 
@@ -239,6 +260,12 @@ Production alias `https://gnfesta.vercel.app` + Vercel Protection Bypass Token `
 - geofence 밖 샘플 좌표: `37.7600, 128.9000`
 - 검증 전화번호: `01000000000`
 
+### 다음 세션 시작 시 읽을 것
+
+- 본 파일 (`phase4_build.md` v0.2)
+- `PHASE_4_PROMPT.md` v1.0 (역사 참조)
+- Phase 5 프롬프트 (수신 시)
+
 ---
 
-*Phase 4 빌드 핸드오프 v0.1 — capture · mission · collection 구현·push 완료 (8375dd0, 2026-04-20) · DB 0019 원격 적용 대기 · 체크포인트 ⓓ 사용자 검증 대기 · M-1 해소 · M-5 Phase 5 이관 / M-6 Phase 5 재검증 · DEBUG Phase 7 까지 유지 — 2026-04-20*
+*Phase 4 빌드 핸드오프 v0.2 — capture · mission · collection 구현·push 완료 (8375dd0, 2026-04-20) · DB 0019 원격 적용 완료 · **체크포인트 ⓓ 4영역 전부 통과 (2026-04-20)** · M-1 해소 / M-5 Phase 5 이관 / M-6 Phase 5 재검증 / M-7·M-8·M-9·SW 신규 메모 · DEBUG Phase 7 까지 유지 · Phase 5 프롬프트 대기 — 2026-04-20*
