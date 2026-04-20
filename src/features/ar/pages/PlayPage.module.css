@@ -328,6 +328,136 @@
   margin: 0;
 }
 
+/* ---- 도감 이동 CTA (Phase 4) ---- */
+
+.collectionBtn {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(64px + env(safe-area-inset-left));
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.collectionBtn:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* ---- 경품 획득 모달 (Phase 4) ---- */
+
+.rewardsOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  z-index: 20;
+}
+
+.rewardsCard {
+  background: #fff;
+  color: #2C2C2C;
+  padding: 24px 24px 20px;
+  border-radius: 16px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.rewardsTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--color-primary, #387594);
+}
+
+.rewardsDesc {
+  font-size: 13px;
+  color: #6A6A6A;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.rewardsList {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rewardsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #F4F6F8;
+  border-radius: 10px;
+}
+
+.rewardsGrade {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary, #387594);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rewardsCode {
+  font-family: ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2C2C2C;
+  letter-spacing: 0.5px;
+}
+
+.rewardsActions {
+  display: flex;
+  gap: 8px;
+}
+
+.rewardsPrimary,
+.rewardsSecondary {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rewardsPrimary {
+  background: var(--color-primary, #387594);
+  color: #fff;
+}
+
+.rewardsPrimary:active {
+  opacity: 0.85;
+}
+
+.rewardsSecondary {
+  background: #E5E7EB;
+  color: #2C2C2C;
+}
+
+.rewardsSecondary:active {
+  opacity: 0.85;
+}
+
 /* ---- Level 4 폴백 ---- */
 
 .fallback4 {

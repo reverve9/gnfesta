@@ -34,6 +34,7 @@ interface FestivalSettings {
   mission_rare_count: number
   mission_legendary_count: number
   movement_outlier_cap_m: number
+  velocity_cap_kmh: number
   active: boolean
   updated_by: string | null
   updated_at: string
@@ -58,6 +59,7 @@ function toFormState(s: FestivalSettings): FormState {
     mission_rare_count: s.mission_rare_count,
     mission_legendary_count: s.mission_legendary_count,
     movement_outlier_cap_m: s.movement_outlier_cap_m,
+    velocity_cap_kmh: s.velocity_cap_kmh,
     updated_by: s.updated_by,
   }
 }
@@ -122,7 +124,9 @@ export default function AdminArSettings() {
       form.mission_rare_count >= 0 &&
       form.mission_legendary_count >= 0 &&
       form.movement_outlier_cap_m >= 1 &&
-      form.movement_outlier_cap_m <= 10000
+      form.movement_outlier_cap_m <= 10000 &&
+      form.velocity_cap_kmh >= 1 &&
+      form.velocity_cap_kmh <= 500
     : false
 
   const canSubmit = !!form && rarityOk && numericOk && !saving
@@ -303,9 +307,13 @@ export default function AdminArSettings() {
                     {numberInput('capture_cooldown_sec', form.capture_cooldown_sec)}
                   </div>
                 </div>
-                <p className={styles.hintMuted}>
-                  쿨다운 실제 적용 로직은 Phase 3-R3 에서 서버 스폰 정책에 반영 예정
-                </p>
+                <div className={styles.field}>
+                  <label className={styles.label}>이동 속도 상한 (km/h)</label>
+                  {numberInput('velocity_cap_kmh', form.velocity_cap_kmh)}
+                  <p className={styles.hintMuted}>
+                    직전 포획과의 평균 속도가 초과하면 velocity_anomaly 로 거절 (Phase 4). 기본 50km/h.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -316,7 +324,7 @@ export default function AdminArSettings() {
           <header className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>경품 미션 조건</h2>
             <p className={styles.sectionSub}>
-              미션 달성 판정 · 경품 발급 로직은 Phase 4 범위 (현재는 조건값 저장만)
+              등급별 누적 포획 수가 조건값에 도달하면 capture RPC 가 경품 코드를 1회 발급
             </p>
           </header>
           <div className={styles.card}>

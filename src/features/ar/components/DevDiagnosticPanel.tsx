@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react'
 import type { FallbackLevel } from '../lib/detectFallbackLevel'
 import type { PermissionState } from '../hooks/useArPermissions'
 import type { FestivalSettingsDto } from '../lib/api'
+import type { ServerRejectionReason } from '../hooks/useSpawnScheduler'
 import { readDebugFlag } from '../lib/debugFlag'
 import styles from './DevDiagnosticPanel.module.css'
 
@@ -54,13 +55,13 @@ export interface DevDiagnosticPanelProps {
   accumulatedDistanceM?: number
   lastSpawnAt?: number | null
   lastRejectedDelta?: { distanceM: number; timestamp: number } | null
-  // --- Phase 3-R3 신규 (server rejection + outlier cap) ---
+  // --- Phase 3-R3 / Phase 4 (server rejection + outlier cap + velocity cap) ---
   /**
-   * 서버가 reason 필드로 거절한 최신 응답. Q1=γ — 토스트·오버레이 없이
-   * 본 패널에만 표시.
+   * 서버가 reason 필드로 거절한 최신 응답. Spawn (R3) 은 DevPanel 만, Capture (Phase 4) 는
+   * 토스트 + DevPanel 로 노출됨.
    */
   lastServerRejection?: {
-    reason: 'outside_geofence' | 'cooldown'
+    reason: ServerRejectionReason
     detail: string
     timestamp: number
   } | null
@@ -145,6 +146,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const radiusLabel = s ? `${s.geofence_radius_m}m` : '—'
   const cooldownLabel = s ? `${s.capture_cooldown_sec}s` : '—'
   const outlierCapLabel = s ? `${s.movement_outlier_cap_m}m` : '—'
+  const velocityCapLabel = s ? `${s.velocity_cap_kmh}km/h` : '—'
 
   return (
     <div className={styles.panel} role="region" aria-label="DEV 진단 패널">
@@ -226,6 +228,9 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
 
         <dt className={styles.key}>Outlier cap</dt>
         <dd className={styles.val}>{outlierCapLabel}</dd>
+
+        <dt className={styles.key}>Velocity cap</dt>
+        <dd className={styles.val}>{velocityCapLabel}</dd>
 
         {props.lastRejectedDelta && (
           <>

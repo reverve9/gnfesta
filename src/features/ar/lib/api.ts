@@ -120,6 +120,8 @@ export interface FestivalSettingsDto {
   mission_legendary_count: number
   /** 이동 이상치 상한(m). Phase 3-R3 신설. 스케줄러 옵션 기본값 출처. */
   movement_outlier_cap_m: number
+  /** velocity anti-cheat 상한(km/h). Phase 4 신설. capture_creature RPC 가 참조. */
+  velocity_cap_kmh: number
   active: boolean
   updated_by: string | null
   updated_at: string
@@ -144,6 +146,154 @@ export async function getFestivalSettings(): Promise<GetFestivalSettingsResponse
     return {
       settings: null,
       error: e instanceof Error ? e.message : String(e),
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 4 — 포획 API (/api/ar/capture)
+// ────────────────────────────────────────────────────────────────────
+
+export interface CaptureResponseOk {
+  ok: true
+  capture_id: number
+  grade: ArRarity
+  /** 이번 capture 로 신규 발급된 경품만 포함 (기존 발급분 제외). */
+  new_rewards: Array<{ grade: ArRarity; code: string }>
+}
+
+/** RPC 거절 shape. `reason` 디스크리미네이터. Q1=A (R3 reason-shape 확장). */
+export type CaptureRejectionReason =
+  | 'outside_geofence'
+  | 'velocity_anomaly'
+  | 'invalid_token'
+  | 'duplicate'
+  | 'expired'
+
+export interface CaptureResponseRejection {
+  ok: false
+  reason: CaptureRejectionReason
+  distance_m?: number
+  speed_kmh?: number
+  capture_id?: number
+}
+
+export type CaptureFailureResult =
+  | 'invalid_phone'
+  | 'invalid_request'
+  | 'server_error'
+  | 'server_misconfigured'
+  | 'method_not_allowed'
+  | 'network_error'
+
+export interface CaptureResponseFail {
+  ok: false
+  result: CaptureFailureResult
+  message?: string
+}
+
+export type CaptureResponse =
+  | CaptureResponseOk
+  | CaptureResponseRejection
+  | CaptureResponseFail
+
+/** 타입 가드 — capture RPC 가 reason 필드로 거절한 shape 인지 판정. */
+export function isCaptureRejection(
+  resp: CaptureResponse,
+): resp is CaptureResponseRejection {
+  return !resp.ok && 'reason' in resp
+}
+
+export async function postArCapture(params: {
+  token: string
+  phone: string
+  lat: number
+  lng: number
+  capturedAt: string
+}): Promise<CaptureResponse> {
+  try {
+    const response = await fetch('/api/ar/capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: params.token,
+        phone: normalizePhone(params.phone),
+        lat: params.lat,
+        lng: params.lng,
+        captured_at: params.capturedAt,
+      }),
+    })
+    const json = (await response.json().catch(() => null)) as CaptureResponse | null
+    if (!json) {
+      return { ok: false, result: 'server_error', message: `HTTP ${response.status}` }
+    }
+    return json
+  } catch (e) {
+    return {
+      ok: false,
+      result: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 4 — 도감 API (/api/ar/collection)
+// ────────────────────────────────────────────────────────────────────
+
+export interface CollectionCapture {
+  id: number
+  creature_id: string
+  creature_name: string
+  rarity: ArRarity
+  thumbnail_url: string | null
+  captured_at: string
+}
+
+export interface CollectionReward {
+  grade: ArRarity
+  code: string
+  issued_at: string
+  status: 'active' | 'used' | 'expired'
+}
+
+export interface CollectionDto {
+  phone: string
+  captures: CollectionCapture[]
+  mission_counts: { common: number; rare: number; legendary: number }
+  progress: { common: number; rare: number; legendary: number }
+  rewards: CollectionReward[]
+}
+
+export type CollectionFailureResult =
+  | 'invalid_phone'
+  | 'server_error'
+  | 'server_misconfigured'
+  | 'method_not_allowed'
+  | 'network_error'
+
+export type CollectionResponse =
+  | { ok: true; collection: CollectionDto }
+  | { ok: false; result: CollectionFailureResult; message?: string }
+
+export async function getArCollection(params: {
+  phone: string
+}): Promise<CollectionResponse> {
+  try {
+    const phone = normalizePhone(params.phone)
+    const response = await fetch(
+      `/api/ar/collection?phone=${encodeURIComponent(phone)}`,
+    )
+    const json = (await response.json().catch(() => null)) as CollectionResponse | null
+    if (!json) {
+      return { ok: false, result: 'server_error', message: `HTTP ${response.status}` }
+    }
+    return json
+  } catch (e) {
+    return {
+      ok: false,
+      result: 'network_error',
+      message: e instanceof Error ? e.message : String(e),
     }
   }
 }

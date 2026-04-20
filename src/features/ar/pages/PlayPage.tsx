@@ -66,7 +66,38 @@ import { resolveCreatureModelUrl } from '../lib/assets'
 import type { ArRarity } from '../lib/assets'
 import { formatPhone, isValidPhone, loadLastPhone, saveLastPhone } from '../../../lib/phone'
 import { readDebugFlag } from '../lib/debugFlag'
+import { isCaptureRejection, postArCapture, type CaptureRejectionReason } from '../lib/api'
 import styles from './PlayPage.module.css'
+
+/** 포획 거절 reason → 사용자 토스트 문구 (PHASE_4_PROMPT.md §1-4). */
+const CAPTURE_REJECT_TOAST: Record<CaptureRejectionReason, string> = {
+  outside_geofence: '축제장 범위를 벗어났어요',
+  expired: '시간 초과예요. 다시 시도해 주세요',
+  duplicate: '이미 포획한 개체예요',
+  velocity_anomaly: '이동 속도가 너무 빨라요',
+  invalid_token: '포획할 수 없는 상태예요',
+}
+
+function rejectionDetail(reason: CaptureRejectionReason, resp: {
+  distance_m?: number
+  speed_kmh?: number
+  capture_id?: number
+}): string {
+  switch (reason) {
+    case 'outside_geofence':
+      return `distance ${resp.distance_m ?? '?'}m`
+    case 'velocity_anomaly':
+      return `speed ${resp.speed_kmh ?? '?'}km/h`
+    case 'duplicate':
+      return `capture #${resp.capture_id ?? '?'}`
+    default:
+      return reason
+  }
+}
+
+interface RewardsModal {
+  rewards: Array<{ grade: ArRarity; code: string }>
+}
 
 // DEV 빌드 또는 ?debug=1 / localStorage 플래그가 있을 때만 lazy chunk 를 실제 로드.
 // Production 번들은 정상 분리(분리된 chunk 는 플래그가 true 일 때만 요청됨).
@@ -147,6 +178,7 @@ export default function PlayPage() {
   } | null>(null)
   const [lastCapturedAt, setLastCapturedAt] = useState<number | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [rewardsModal, setRewardsModal] = useState<RewardsModal | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -156,6 +188,7 @@ export default function PlayPage() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeSpawnRef = useRef<ActiveSpawn | null>(null)
   activeSpawnRef.current = activeSpawn
+  const captureInFlightRef = useRef(false)
 
   const gps = useGpsPosition({ enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 })
   const geofence = useFestivalGeofence(gps.position)
@@ -385,8 +418,11 @@ export default function PlayPage() {
     }
   }, [scheduler.currentSpawn])
 
-  // 캔버스 탭 — pickCreatureAt → 로컬 captured 토글 (실제 포획 API 는 Phase 4)
-  // R2 보완: 소멸 + 스케줄러 리셋 연결 (크리처 시각 제거 + 다음 스폰 45s 후 재개).
+  // 캔버스 탭 — Phase 4: 서버 /api/ar/capture 호출 + 응답 분기.
+  //  · 성공: ArScene 즉시 숨김 + scheduler.markCaptured() + 토스트 + (new_rewards 있으면 모달)
+  //  · RPC 거절: reason 별 한국어 토스트 + scheduler.noteRejection (DevPanel 기록) — captured 전환 안 함
+  //  · 입력/네트워크/서버 오류: lastError + generic 토스트
+  //  · 동시 다중 터치 방지: captureInFlightRef 가드
   const handleCanvasPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
@@ -399,13 +435,60 @@ export default function PlayPage() {
       const current = activeSpawnRef.current
       if (!current || current.instanceId !== hitId) return
       if (current.captured) return
-      sceneRef.current?.setCreatureVisible(current.instanceId, false)
-      setActiveSpawn({ ...current, captured: true, visible: false })
-      setLastCapturedAt(Date.now())
-      showToast(`포획! ${current.creatureName}`)
-      scheduler.markCaptured()
+      if (captureInFlightRef.current) return
+      const pos = gps.position
+      if (!pos) {
+        showToast('위치 확인 중이에요')
+        return
+      }
+      if (!phone) {
+        showToast('전화번호가 필요해요')
+        return
+      }
+
+      captureInFlightRef.current = true
+      const capturedAt = new Date().toISOString()
+      ;(async () => {
+        const resp = await postArCapture({
+          token: current.token,
+          phone,
+          lat: pos.lat,
+          lng: pos.lng,
+          capturedAt,
+        })
+        captureInFlightRef.current = false
+
+        if (resp.ok) {
+          sceneRef.current?.setCreatureVisible(current.instanceId, false)
+          setActiveSpawn({ ...current, captured: true, visible: false })
+          setLastCapturedAt(Date.now())
+          showToast(`포획! ${current.creatureName}`)
+          scheduler.markCaptured()
+          if (resp.new_rewards && resp.new_rewards.length > 0) {
+            setRewardsModal({ rewards: resp.new_rewards })
+          }
+          return
+        }
+
+        if (isCaptureRejection(resp)) {
+          const detail = rejectionDetail(resp.reason, resp)
+          scheduler.noteRejection(resp.reason, detail)
+          showToast(CAPTURE_REJECT_TOAST[resp.reason])
+          // duplicate 는 이미 서버상 기록된 상태이므로 로컬에서도 captured 로 표시 (재탭 방지).
+          if (resp.reason === 'duplicate') {
+            sceneRef.current?.setCreatureVisible(current.instanceId, false)
+            setActiveSpawn({ ...current, captured: true, visible: false })
+            scheduler.markCaptured()
+          }
+          return
+        }
+
+        // 기타 실패 (invalid_phone / invalid_request / server_error / network_error 등)
+        setLastError(`capture: ${resp.result}${resp.message ? `: ${resp.message}` : ''}`)
+        showToast('포획 요청에 실패했어요. 잠시 후 다시 시도해 주세요')
+      })()
     },
-    [showToast, scheduler],
+    [showToast, scheduler, gps.position, phone],
   )
 
   const hudChipText = useMemo(() => {
@@ -534,6 +617,14 @@ export default function PlayPage() {
           <div className={styles.hudChip}>{geofenceStatusText}</div>
         </div>
 
+        <button
+          type="button"
+          className={styles.collectionBtn}
+          onClick={() => navigate('/ar/collection')}
+        >
+          내 도감
+        </button>
+
         {/* 우측 하단 미니맵 — geofence 설정 로드 후 렌더 */}
         {permissions.gps === 'granted' && miniMapGeofence && (
           <div className={styles.miniMapBox}>
@@ -585,6 +676,50 @@ export default function PlayPage() {
           )}
 
         {toast && <div className={styles.toast}>{toast}</div>}
+
+        {rewardsModal && (
+          <div
+            className={styles.rewardsOverlay}
+            role="dialog"
+            aria-labelledby="rewards-title"
+          >
+            <div className={styles.rewardsCard}>
+              <h2 id="rewards-title" className={styles.rewardsTitle}>
+                경품 획득!
+              </h2>
+              <p className={styles.rewardsDesc}>
+                아래 코드를 매표소에서 제시해 주세요.
+              </p>
+              <ul className={styles.rewardsList}>
+                {rewardsModal.rewards.map(r => (
+                  <li key={r.code} className={styles.rewardsItem}>
+                    <span className={styles.rewardsGrade}>{r.grade}</span>
+                    <code className={styles.rewardsCode}>{r.code}</code>
+                  </li>
+                ))}
+              </ul>
+              <div className={styles.rewardsActions}>
+                <button
+                  type="button"
+                  className={styles.rewardsPrimary}
+                  onClick={() => {
+                    setRewardsModal(null)
+                    navigate('/ar/collection')
+                  }}
+                >
+                  도감 보기
+                </button>
+                <button
+                  type="button"
+                  className={styles.rewardsSecondary}
+                  onClick={() => setRewardsModal(null)}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {readDebugFlag() && (
           <Suspense fallback={null}>

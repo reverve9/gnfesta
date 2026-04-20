@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   isSpawnServerRejection,
   postArSpawn,
+  type CaptureRejectionReason,
   type SpawnResponseOk,
   type SpawnResponseServerRejection,
 } from '../lib/api'
@@ -47,11 +48,17 @@ export interface SpawnSchedulerOptions {
 }
 
 /**
- * 서버가 `reason` 필드로 거절한 최신 응답 요약. Q1=γ 결정.
- * outside_geofence / cooldown 발생 시 DevPanel 표시용.
+ * 서버가 `reason` 필드로 거절한 최신 응답 요약.
+ *  · Spawn (Phase 3-R3): outside_geofence / cooldown — Q1=γ 로 DevPanel 만 표시.
+ *  · Capture (Phase 4): outside_geofence / velocity_anomaly / invalid_token / duplicate / expired —
+ *    PlayPage 가 토스트로 사용자에게 직접 피드백하면서 동일 state 에도 기록 (DevPanel 디버그용).
  */
+export type ServerRejectionReason =
+  | SpawnResponseServerRejection['reason']
+  | CaptureRejectionReason
+
 export interface LastServerRejection {
-  reason: SpawnResponseServerRejection['reason']
+  reason: ServerRejectionReason
   detail: string
   timestamp: number
 }
@@ -79,10 +86,15 @@ export interface SpawnSchedulerState {
    * 지금으로 재설정. 다음 스폰은 포획 시점에서 `spawnIntervalSec` 후 재발동.
    * 누적 이동 거리는 유지 (이동 트리거 독립성 보장).
    *
-   * Phase 2 의 로컬 captured state 와 조합하여 R2 포획 흐름을 완성. Phase 4 에서
-   * 서버 `/api/ar/capture` 도입 시 해당 RPC 응답 후 호출 예정.
+   * Phase 4 에서 `/api/ar/capture` 200 응답 후 호출. 거절 응답 시에는 호출하지 않음.
    */
   markCaptured: () => void
+  /**
+   * 서버 거절을 외부 경로(Phase 4 capture API 등)에서 본 훅의 `lastServerRejection`
+   * state 에 기록하기 위한 setter. Q1=A — capture 실패는 사용자 토스트 경로를 갖되
+   * DevPanel 에도 동일하게 노출되도록 통합.
+   */
+  noteRejection: (reason: ServerRejectionReason, detail: string) => void
 }
 
 export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerState {
@@ -148,6 +160,13 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     setLastSpawnAt(now)
     // accumulatedRef / setAccumulatedDistanceM 는 건드리지 않음 — 이동 트리거 독립성 유지.
   }, [])
+
+  const noteRejection = useCallback(
+    (reason: ServerRejectionReason, detail: string) => {
+      setLastServerRejection({ reason, detail, timestamp: Date.now() })
+    },
+    [],
+  )
 
   const triggerSpawn = useCallback(async () => {
     if (inFlightRef.current) return
@@ -279,5 +298,6 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     lastServerRejection,
     error,
     markCaptured,
+    noteRejection,
   }
 }
