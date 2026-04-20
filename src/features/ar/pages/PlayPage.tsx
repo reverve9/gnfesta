@@ -172,6 +172,7 @@ export default function PlayPage() {
     spawnIntervalSec: geofence.settings?.spawn_interval_sec ?? 45,
     movementBonusDistanceM: geofence.settings?.movement_bonus_distance_m ?? 50,
     captureTokenTtlSec: geofence.settings?.capture_token_ttl_sec ?? 60,
+    movementOutlierCapM: geofence.settings?.movement_outlier_cap_m,
   })
 
   // Mount: 초기 Level 4 감지 + phone 자동 로드.
@@ -615,6 +616,7 @@ export default function PlayPage() {
               accumulatedDistanceM={scheduler.accumulatedDistanceM}
               lastSpawnAt={scheduler.lastSpawnAt}
               lastRejectedDelta={scheduler.lastRejectedDelta}
+              lastServerRejection={scheduler.lastServerRejection}
             />
           </Suspense>
         )}

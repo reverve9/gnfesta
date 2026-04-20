@@ -12,31 +12,27 @@ import { createClient } from '@supabase/supabase-js'
  *   { ok:true, spawn: { token, creature_id, creature_name, creature_rarity,
  *                        model_url, thumbnail_url, expires_at, reused } }
  *
- * 실패 응답:
+ * 기존 실패 응답 (hodl 호환):
  *   { ok:false, result, message? }
  *   result ∈ invalid_phone | invalid_request | no_creatures
  *          | server_error | server_misconfigured | method_not_allowed
  *
- * Phase 3-R1 재설계 (phase3_redesign.md v1.0)
- *  · zone_id 요구 제거 — 다중 zone 모델 폐기.
- *  · ar_zones 쿼리 제거. geofence 검증은 R3 에서 festival_settings 기반으로 재도입.
- *  · body 에 zone_id 가 와도 무시 (클라 postArSpawn 시그니처 R2 까지 유지).
- *  · `issue_spawn_token` 은 (p_phone, p_creature_id) 2파라미터.
- *  · rarity 분포는 여전히 common 70 / rare 25 / legendary 5 하드코딩 —
- *    ar_festival_settings 연동은 R3 범위.
- *  · 기존 유효 token 재사용 로직: phone 단독 기준 (zone_id 제거).
- *  · Vercel 제약: api/_lib/ 임포트 금지 → phone 정규화 등 인라인.
+ * Phase 3-R3 신규 실패 응답:
+ *   403 { ok:false, reason:'outside_geofence', distance_m }
+ *   429 { ok:false, reason:'cooldown', retry_after_sec }
+ *
+ * Phase 3-R3 재설계 (PHASE_3_R3_PROMPT v1.0)
+ *  · Geofence 검증: haversine 계산 후 반경 초과 시 403 + outside_geofence.
+ *  · Rarity 분포: ar_festival_settings.rarity_weight_{common,rare,legendary} DB 로드.
+ *    R2 까지 하드코딩 70/25/5 완전 제거.
+ *  · TTL: issue_spawn_token RPC 가 capture_token_ttl_sec 동적 로드 (0018 마이그레이션).
+ *  · 쿨다운: RPC 내부 P0001 'cooldown_active:<N>' 시그널 → 핸들러 파싱 → 429.
+ *  · 기존 reuse (phone 기준 유효 토큰 재반환) 경로 유지 — 재사용은 쿨다운 판정 대상 아님.
+ *  · Vercel 제약: api/_lib/ 임포트 금지 → 유틸 인라인.
  */
 
-const RARITY_WEIGHTS = {
-  common: 0.7,
-  rare: 0.25,
-  legendary: 0.05,
-} as const
+type Rarity = 'common' | 'rare' | 'legendary'
 
-type Rarity = keyof typeof RARITY_WEIGHTS
-
-// src/lib/phone.ts 의 normalizePhone + isValidPhone 와 동등. api/_lib 금지로 인라인.
 function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, '').slice(0, 11)
 }
@@ -58,11 +54,16 @@ function isValidCoord(lat: unknown, lng: unknown): boolean {
   )
 }
 
-function sampleRarity(): Rarity {
-  const r = Math.random()
-  if (r < RARITY_WEIGHTS.common) return 'common'
-  if (r < RARITY_WEIGHTS.common + RARITY_WEIGHTS.rare) return 'rare'
-  return 'legendary'
+// src/features/ar/lib/geo.ts 의 haversineMeters 와 동등. api/_lib 금지로 인라인.
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a)) * 1000
 }
 
 interface CreatureRow {
@@ -72,6 +73,15 @@ interface CreatureRow {
   model_url: string
   thumbnail_url: string | null
   spawn_rate: number
+}
+
+function sampleRarityFromWeights(weights: Record<Rarity, number>): Rarity {
+  const total = weights.common + weights.rare + weights.legendary
+  // settings 는 합 100 이 강제되지만 방어적으로 계산.
+  const r = Math.random() * (total > 0 ? total : 100)
+  if (r < weights.common) return 'common'
+  if (r < weights.common + weights.rare) return 'rare'
+  return 'legendary'
 }
 
 function pickByWeight(candidates: CreatureRow[]): CreatureRow {
@@ -85,6 +95,15 @@ function pickByWeight(candidates: CreatureRow[]): CreatureRow {
     if (pick <= 0) return c
   }
   return candidates[candidates.length - 1]
+}
+
+/** RPC error.message 에서 'cooldown_active:<N>' 패턴을 파싱. 실패 시 null. */
+function parseCooldownMessage(msg: string | undefined | null): number | null {
+  if (!msg) return null
+  const m = /cooldown_active:(\d+)/.exec(msg)
+  if (!m) return null
+  const n = parseInt(m[1], 10)
+  return Number.isFinite(n) ? n : null
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -123,7 +142,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const supabase = createClient(supabaseUrl, supabaseKey)
 
-  // 1) 기존 유효 token 재사용 — phone 단독 기준 (zone_id 모델 폐기)
+  // 1) festival settings 로드 — geofence + rarity 분포 필수.
+  const { data: settingsData, error: settingsErr } = await supabase.rpc(
+    'get_festival_settings',
+  )
+  if (settingsErr) {
+    return res
+      .status(500)
+      .json({ ok: false, result: 'server_error', message: settingsErr.message })
+  }
+  const settings = settingsData as {
+    center_lat: number
+    center_lng: number
+    geofence_radius_m: number
+    rarity_weight_common: number
+    rarity_weight_rare: number
+    rarity_weight_legendary: number
+  } | null
+  if (!settings) {
+    return res.status(500).json({
+      ok: false,
+      result: 'server_error',
+      message: 'no active ar_festival_settings',
+    })
+  }
+
+  // 2) Geofence 검증 — 반경 초과 시 403 + outside_geofence.
+  const clientLat = body.client_lat as number
+  const clientLng = body.client_lng as number
+  const distanceM = haversineMeters(
+    settings.center_lat,
+    settings.center_lng,
+    clientLat,
+    clientLng,
+  )
+  if (distanceM > settings.geofence_radius_m) {
+    return res.status(403).json({
+      ok: false,
+      reason: 'outside_geofence',
+      distance_m: Math.round(distanceM),
+    })
+  }
+
+  // 3) 기존 유효 token 재사용 — phone 단독 기준. 재사용은 쿨다운 판정 대상 아님.
   const { data: existing, error: existErr } = await supabase
     .from('ar_spawn_tokens')
     .select('token, creature_id, expires_at')
@@ -159,10 +220,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       })
     }
-    // creature 가 soft-delete/사라진 레이스 — 신규 경로로 낙하
   }
 
-  // 2) 신규 creature 선택 — active 전체 조회 후 rarity 샘플링 → spawn_rate 가중
+  // 4) 신규 creature 선택 — DB rarity 분포로 샘플링 → spawn_rate 가중.
   const { data: allCreatures, error: cErr } = await supabase
     .from('ar_creatures')
     .select('id, name, rarity, model_url, thumbnail_url, spawn_rate')
@@ -176,8 +236,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: false, result: 'no_creatures' })
   }
 
-  // rarity 우선순위: 샘플링 → common → rare → legendary 폴백
-  const tryOrder: Rarity[] = [sampleRarity(), 'common', 'rare', 'legendary']
+  const weights: Record<Rarity, number> = {
+    common: settings.rarity_weight_common,
+    rare: settings.rarity_weight_rare,
+    legendary: settings.rarity_weight_legendary,
+  }
+  // 샘플링 → 해당 rarity 비어있으면 common → rare → legendary 폴백.
+  const tryOrder: Rarity[] = [sampleRarityFromWeights(weights), 'common', 'rare', 'legendary']
   let chosen: CreatureRow | null = null
   for (const rar of tryOrder) {
     const candidates = (allCreatures as CreatureRow[]).filter(c => c.rarity === rar)
@@ -190,21 +255,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: false, result: 'no_creatures' })
   }
 
-  // 3) issue_spawn_token RPC (2파라미터, SECURITY DEFINER, TTL 60초)
+  // 5) issue_spawn_token RPC — TTL 동적 로드 + 쿨다운 내부 판정.
   const { data: tokenData, error: rpcErr } = await supabase.rpc('issue_spawn_token', {
     p_phone: normalized,
     p_creature_id: chosen.id,
   })
-  const token = typeof tokenData === 'string' ? tokenData : null
-  if (rpcErr || !token) {
+  if (rpcErr) {
+    const retryAfter = parseCooldownMessage(rpcErr.message)
+    if (retryAfter !== null) {
+      return res
+        .status(429)
+        .json({ ok: false, reason: 'cooldown', retry_after_sec: retryAfter })
+    }
     return res.status(500).json({
       ok: false,
       result: 'server_error',
-      message: rpcErr?.message ?? 'issue_spawn_token returned empty',
+      message: rpcErr.message,
+    })
+  }
+  const token = typeof tokenData === 'string' ? tokenData : null
+  if (!token) {
+    return res.status(500).json({
+      ok: false,
+      result: 'server_error',
+      message: 'issue_spawn_token returned empty',
     })
   }
 
-  // 4) expires_at 재조회 (RPC 가 token 만 반환)
+  // 6) expires_at 재조회 (RPC 는 token 만 반환. TTL 동적이므로 클라 계산 불가).
   const { data: tokenRow } = await supabase
     .from('ar_spawn_tokens')
     .select('expires_at')
@@ -220,6 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creature_rarity: chosen.rarity,
       model_url: chosen.model_url,
       thumbnail_url: chosen.thumbnail_url,
+      // tokenRow 실패(레이스) 시 최소 TTL 가정으로 낙하 — 정상 경로에서 도달 불가.
       expires_at: tokenRow?.expires_at ?? new Date(Date.now() + 60_000).toISOString(),
       reused: false,
     },

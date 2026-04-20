@@ -872,6 +872,7 @@ export interface Database {
           mission_common_count: number
           mission_rare_count: number
           mission_legendary_count: number
+          movement_outlier_cap_m: number
           active: boolean
           updated_by: string | null
           created_at: string
@@ -893,6 +894,7 @@ export interface Database {
           mission_common_count?: number
           mission_rare_count?: number
           mission_legendary_count?: number
+          movement_outlier_cap_m?: number
           active?: boolean
           updated_by?: string | null
           created_at?: string
@@ -914,6 +916,7 @@ export interface Database {
           mission_common_count?: number
           mission_rare_count?: number
           mission_legendary_count?: number
+          movement_outlier_cap_m?: number
           active?: boolean
           updated_by?: string | null
           created_at?: string
@@ -1184,7 +1187,7 @@ export interface Database {
         Returns: Json
       }
       update_festival_settings: {
-        Args: { p_settings: Json }
+        Args: { p_settings: Json; p_movement_outlier_cap_m?: number | null }
         Returns: Json
       }
     }

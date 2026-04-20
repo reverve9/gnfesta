@@ -33,6 +33,7 @@ interface FestivalSettings {
   mission_common_count: number
   mission_rare_count: number
   mission_legendary_count: number
+  movement_outlier_cap_m: number
   active: boolean
   updated_by: string | null
   updated_at: string
@@ -56,6 +57,7 @@ function toFormState(s: FestivalSettings): FormState {
     mission_common_count: s.mission_common_count,
     mission_rare_count: s.mission_rare_count,
     mission_legendary_count: s.mission_legendary_count,
+    movement_outlier_cap_m: s.movement_outlier_cap_m,
     updated_by: s.updated_by,
   }
 }
@@ -118,7 +120,9 @@ export default function AdminArSettings() {
       form.capture_cooldown_sec >= 0 &&
       form.mission_common_count >= 0 &&
       form.mission_rare_count >= 0 &&
-      form.mission_legendary_count >= 0
+      form.mission_legendary_count >= 0 &&
+      form.movement_outlier_cap_m >= 1 &&
+      form.movement_outlier_cap_m <= 10000
     : false
 
   const canSubmit = !!form && rarityOk && numericOk && !saving
@@ -237,6 +241,13 @@ export default function AdminArSettings() {
                     <label className={styles.label}>이동 보너스 거리 (m)</label>
                     {numberInput('movement_bonus_distance_m', form.movement_bonus_distance_m)}
                   </div>
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>이동 이상치 상한 (m)</label>
+                  {numberInput('movement_outlier_cap_m', form.movement_outlier_cap_m)}
+                  <p className={styles.hintMuted}>
+                    한 번의 GPS 업데이트에서 해당 거리 초과 이동은 이상치로 간주하여 누적 무시
+                  </p>
                 </div>
               </div>
             </div>

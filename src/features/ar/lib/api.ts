@@ -41,13 +41,37 @@ export type SpawnFailureResult =
   | 'method_not_allowed'
   | 'network_error'
 
+/** 기존 실패 shape — HTTP 4xx/5xx 에 공통으로 사용되던 `{ ok:false, result }`. */
 export interface SpawnResponseFail {
   ok: false
   result: SpawnFailureResult
   message?: string
 }
 
-export type SpawnResponse = SpawnResponseOk | SpawnResponseFail
+/**
+ * Phase 3-R3 신규 실패 shape — geofence / cooldown 거절.
+ * `reason` 디스크리미네이터로 기존 `result` shape 과 구분.
+ * Q1=γ 결정에 따라 클라는 이 응답을 스케줄러 에러로 처리하지 않고 DevPanel `lastServerRejection`
+ * 에만 기록한다.
+ */
+export interface SpawnResponseServerRejection {
+  ok: false
+  reason: 'outside_geofence' | 'cooldown'
+  distance_m?: number
+  retry_after_sec?: number
+}
+
+export type SpawnResponse =
+  | SpawnResponseOk
+  | SpawnResponseFail
+  | SpawnResponseServerRejection
+
+/** 타입 가드: 서버 거절(reason) shape 인지 판정. */
+export function isSpawnServerRejection(
+  resp: SpawnResponse,
+): resp is SpawnResponseServerRejection {
+  return !resp.ok && 'reason' in resp
+}
 
 export async function postArSpawn(params: {
   phone: string
@@ -94,6 +118,8 @@ export interface FestivalSettingsDto {
   mission_common_count: number
   mission_rare_count: number
   mission_legendary_count: number
+  /** 이동 이상치 상한(m). Phase 3-R3 신설. 스케줄러 옵션 기본값 출처. */
+  movement_outlier_cap_m: number
   active: boolean
   updated_by: string | null
   updated_at: string

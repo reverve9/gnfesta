@@ -54,6 +54,16 @@ export interface DevDiagnosticPanelProps {
   accumulatedDistanceM?: number
   lastSpawnAt?: number | null
   lastRejectedDelta?: { distanceM: number; timestamp: number } | null
+  // --- Phase 3-R3 신규 (server rejection + outlier cap) ---
+  /**
+   * 서버가 reason 필드로 거절한 최신 응답. Q1=γ — 토스트·오버레이 없이
+   * 본 패널에만 표시.
+   */
+  lastServerRejection?: {
+    reason: 'outside_geofence' | 'cooldown'
+    detail: string
+    timestamp: number
+  } | null
 }
 
 function formatMemoryMB(): string {
@@ -134,6 +144,7 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
     props.inside === undefined ? '—' : props.inside ? 'inside' : 'outside'
   const radiusLabel = s ? `${s.geofence_radius_m}m` : '—'
   const cooldownLabel = s ? `${s.capture_cooldown_sec}s` : '—'
+  const outlierCapLabel = s ? `${s.movement_outlier_cap_m}m` : '—'
 
   return (
     <div className={styles.panel} role="region" aria-label="DEV 진단 패널">
@@ -211,13 +222,27 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
         </dd>
 
         <dt className={styles.key}>Cooldown</dt>
-        <dd className={styles.val}>{cooldownLabel} (R3)</dd>
+        <dd className={styles.val}>{cooldownLabel}</dd>
+
+        <dt className={styles.key}>Outlier cap</dt>
+        <dd className={styles.val}>{outlierCapLabel}</dd>
 
         {props.lastRejectedDelta && (
           <>
             <dt className={styles.key}>GPS spike</dt>
             <dd className={styles.val}>
               {formatMeters(props.lastRejectedDelta.distanceM)} @ {formatTime(props.lastRejectedDelta.timestamp)}
+            </dd>
+          </>
+        )}
+
+        {props.lastServerRejection && (
+          <>
+            <dt className={styles.key}>Server reject</dt>
+            <dd className={styles.val}>
+              {props.lastServerRejection.reason} · {props.lastServerRejection.detail}
+              {' @ '}
+              {formatTime(props.lastServerRejection.timestamp)}
             </dd>
           </>
         )}

@@ -16,12 +16,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { postArSpawn, type SpawnResponseOk } from '../lib/api'
+import {
+  isSpawnServerRejection,
+  postArSpawn,
+  type SpawnResponseOk,
+  type SpawnResponseServerRejection,
+} from '../lib/api'
 import { haversineMeters } from '../lib/geo'
 import type { GpsPosition } from './useGpsPosition'
 
-/** 단일 이벤트 간 누적 이동 거리 이상치 상한(m). 초과 시 해당 델타 제외. */
-const MOVEMENT_OUTLIER_CAP_M = 100
+/** 단일 이벤트 간 누적 이동 거리 이상치 상한(m) 기본값. 옵션 미주입 시 폴백. */
+const DEFAULT_MOVEMENT_OUTLIER_CAP_M = 100
 
 export interface SpawnSchedulerOptions {
   /** geofence inside + GPS 획득 + phone 존재 등 상위 조건이 모두 참일 때 true. */
@@ -34,6 +39,21 @@ export interface SpawnSchedulerOptions {
   movementBonusDistanceM: number
   /** 발급 토큰 TTL(초). settings.capture_token_ttl_sec. expires_at 판정 보조용. */
   captureTokenTtlSec: number
+  /**
+   * 이동 이상치 상한(m). settings.movement_outlier_cap_m.
+   * 미주입 시 {@link DEFAULT_MOVEMENT_OUTLIER_CAP_M} 폴백. Phase 3-R3 신설.
+   */
+  movementOutlierCapM?: number
+}
+
+/**
+ * 서버가 `reason` 필드로 거절한 최신 응답 요약. Q1=γ 결정.
+ * outside_geofence / cooldown 발생 시 DevPanel 표시용.
+ */
+export interface LastServerRejection {
+  reason: SpawnResponseServerRejection['reason']
+  detail: string
+  timestamp: number
 }
 
 export interface SpawnSchedulerState {
@@ -47,6 +67,11 @@ export interface SpawnSchedulerState {
   currentSpawn: SpawnResponseOk['spawn'] | null
   /** 이상치로 제외된 마지막 델타. DevPanel 관찰용. */
   lastRejectedDelta: { distanceM: number; timestamp: number } | null
+  /**
+   * 서버가 reason 필드로 거절한 최신 응답 (outside_geofence / cooldown).
+   * Q1=γ: 토스트·오버레이 전환 없이 DevPanel 에만 표시.
+   */
+  lastServerRejection: LastServerRejection | null
   /** 마지막 에러 메시지. */
   error: string | null
   /**
@@ -61,7 +86,15 @@ export interface SpawnSchedulerState {
 }
 
 export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerState {
-  const { enabled, phone, position, spawnIntervalSec, movementBonusDistanceM } = opts
+  const {
+    enabled,
+    phone,
+    position,
+    spawnIntervalSec,
+    movementBonusDistanceM,
+    movementOutlierCapM,
+  } = opts
+  const outlierCap = movementOutlierCapM ?? DEFAULT_MOVEMENT_OUTLIER_CAP_M
 
   const [lastSpawnAt, setLastSpawnAt] = useState<number | null>(null)
   const [nextSpawnEta, setNextSpawnEta] = useState<number | null>(null)
@@ -70,6 +103,8 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
   const [lastRejectedDelta, setLastRejectedDelta] = useState<
     { distanceM: number; timestamp: number } | null
   >(null)
+  const [lastServerRejection, setLastServerRejection] =
+    useState<LastServerRejection | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // 최신값 ref — 비동기 콜백·타이머 안에서 closure stale 방지
@@ -81,6 +116,7 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
   const enabledRef = useRef(enabled)
   const phoneRef = useRef(phone)
   const intervalSecRef = useRef(spawnIntervalSec)
+  const outlierCapRef = useRef(outlierCap)
 
   lastSpawnAtRef.current = lastSpawnAt
   accumulatedRef.current = accumulatedDistanceM
@@ -88,6 +124,7 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
   enabledRef.current = enabled
   phoneRef.current = phone
   intervalSecRef.current = spawnIntervalSec
+  outlierCapRef.current = outlierCap
 
   const resetScheduler = useCallback(() => {
     lastSpawnAtRef.current = null
@@ -100,6 +137,7 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     setAccumulatedDistanceM(0)
     setCurrentSpawn(null)
     setError(null)
+    setLastServerRejection(null)
   }, [])
 
   const markCaptured = useCallback(() => {
@@ -128,6 +166,20 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     if (!enabledRef.current) return // 요청 중 비활성화 → 결과 무시
 
     if (!resp.ok) {
+      // Q1=γ: 서버 reason 거절(outside_geofence / cooldown)은 토스트·에러 없이
+      // DevPanel 표시용 lastServerRejection 에만 기록. 다음 틱에서 자연 재시도.
+      if (isSpawnServerRejection(resp)) {
+        const detail =
+          resp.reason === 'outside_geofence'
+            ? `distance ${resp.distance_m ?? '?'}m`
+            : `retry after ${resp.retry_after_sec ?? '?'}s`
+        setLastServerRejection({
+          reason: resp.reason,
+          detail,
+          timestamp: Date.now(),
+        })
+        return
+      }
       setError(`${resp.result}${resp.message ? `: ${resp.message}` : ''}`)
       return
     }
@@ -160,7 +212,7 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     if (!prev) return // 최초 샘플은 기준점 설정만
 
     const delta = haversineMeters(prev.lat, prev.lng, position.lat, position.lng)
-    if (delta > MOVEMENT_OUTLIER_CAP_M) {
+    if (delta > outlierCapRef.current) {
       setLastRejectedDelta({ distanceM: delta, timestamp: Date.now() })
       return
     }
@@ -224,6 +276,7 @@ export function useSpawnScheduler(opts: SpawnSchedulerOptions): SpawnSchedulerSt
     accumulatedDistanceM,
     currentSpawn,
     lastRejectedDelta,
+    lastServerRejection,
     error,
     markCaptured,
   }

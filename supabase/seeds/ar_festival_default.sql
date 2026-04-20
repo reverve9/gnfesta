@@ -20,6 +20,7 @@ INSERT INTO ar_festival_settings (
   rarity_weight_common, rarity_weight_rare, rarity_weight_legendary,
   capture_token_ttl_sec, capture_cooldown_sec,
   mission_common_count, mission_rare_count, mission_legendary_count,
+  movement_outlier_cap_m,
   active
 )
 SELECT
@@ -29,6 +30,7 @@ SELECT
   75, 22, 3,
   60, 0,
   10, 3, 1,
+  100,
   true
 WHERE NOT EXISTS (
   SELECT 1 FROM ar_festival_settings WHERE active = true
