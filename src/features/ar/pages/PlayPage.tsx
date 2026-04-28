@@ -69,11 +69,12 @@ import { readDebugFlag } from '../lib/debugFlag'
 import { isCaptureRejection, postArCapture, type CaptureRejectionReason } from '../lib/api'
 import styles from './PlayPage.module.css'
 
-/** 포획 거절 reason → 사용자 토스트 문구 (PHASE_4_PROMPT.md §1-4). */
+/** 포획 거절 reason → 사용자 토스트 문구 (PHASE_4_PROMPT.md §1-4 + Fix 01 §1-3). */
 const CAPTURE_REJECT_TOAST: Record<CaptureRejectionReason, string> = {
   outside_geofence: '축제장 범위를 벗어났어요',
   expired: '시간 초과예요. 다시 시도해 주세요',
   duplicate: '이미 포획한 개체예요',
+  already_captured: '이미 도감에 있어요',
   velocity_anomaly: '이동 속도가 너무 빨라요',
   invalid_token: '포획할 수 없는 상태예요',
 }
@@ -89,6 +90,7 @@ function rejectionDetail(reason: CaptureRejectionReason, resp: {
     case 'velocity_anomaly':
       return `speed ${resp.speed_kmh ?? '?'}km/h`
     case 'duplicate':
+    case 'already_captured':
       return `capture #${resp.capture_id ?? '?'}`
     default:
       return reason
@@ -474,8 +476,9 @@ export default function PlayPage() {
           const detail = rejectionDetail(resp.reason, resp)
           scheduler.noteRejection(resp.reason, detail)
           showToast(CAPTURE_REJECT_TOAST[resp.reason])
-          // duplicate 는 이미 서버상 기록된 상태이므로 로컬에서도 captured 로 표시 (재탭 방지).
-          if (resp.reason === 'duplicate') {
+          // duplicate / already_captured 는 이미 서버상 기록된 상태이므로 로컬에서도
+          // captured 로 표시 (재탭 방지). Fix 01 §1-3.
+          if (resp.reason === 'duplicate' || resp.reason === 'already_captured') {
             sceneRef.current?.setCreatureVisible(current.instanceId, false)
             setActiveSpawn({ ...current, captured: true, visible: false })
             scheduler.markCaptured()

@@ -67,6 +67,7 @@ function statusForReason(reason: string | undefined): number {
     case 'expired':
       return 410
     case 'duplicate':
+    case 'already_captured':
       return 409
     case 'outside_geofence':
     case 'velocity_anomaly':

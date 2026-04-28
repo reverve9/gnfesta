@@ -162,12 +162,15 @@ export interface CaptureResponseOk {
   new_rewards: Array<{ grade: ArRarity; code: string }>
 }
 
-/** RPC 거절 shape. `reason` 디스크리미네이터. Q1=A (R3 reason-shape 확장). */
+/** RPC 거절 shape. `reason` 디스크리미네이터. Q1=A (R3 reason-shape 확장).
+ *  `already_captured` 는 Fix 01 (F2) 에서 추가 — 다른 토큰으로 같은 creature 재포획 시 발생.
+ *  `duplicate` (동일 토큰 재탭) 와 분리. HTTP status 는 둘 다 409. */
 export type CaptureRejectionReason =
   | 'outside_geofence'
   | 'velocity_anomaly'
   | 'invalid_token'
   | 'duplicate'
+  | 'already_captured'
   | 'expired'
 
 export interface CaptureResponseRejection {
