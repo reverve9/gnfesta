@@ -1,6 +1,6 @@
 # Phase 4 Fix 01 빌드 로그 — already_captured 분기 추가 (F2 해소)
 
-> **상태**: 코드 구현 + 자체 빌드 검증 완료. **사용자 §5-1 (마이그 0020 원격 적용) + §5-3 curl C7 (Claude Code 자체) + §5-4 E5/E6 재검증 (사용자) 진행 대기**.
+> **상태**: 코드 + 마이그 + 빌드 + §5-1 마이그 적용 + §5-3 curl C7 모두 통과 (2026-04-29). **§5-4 E5/E6 재검증 (사용자) 만 잔여**.
 > **작성 기준**: `PHASE_4_FIX01_PROMPT.md` v1.0, `checkpoint_d_result.md` §5 F2, `phase4_build.md` v0.2
 
 ---
@@ -16,8 +16,8 @@
 | PlayPage 토스트 분기 + 로컬 captured 처리 (재탭 차단) | ✅ 적용·커밋 |
 | `useSpawnScheduler` `ServerRejectionReason` 자동 propagation | ✅ 직접 변경 없음 (api.ts union 통해 흡수) |
 | 자체 빌드 (tsc -b + vite build) | ✅ EXIT=0 / 747ms |
-| §5-1 마이그 원격 적용 | ⏸ 사용자 대기 |
-| §5-3 curl C7 자체 검증 | ⏸ §5-1 완료 후 진행 |
+| §5-1 마이그 원격 적용 | ✅ PASS (사용자 회신 본문 검증, 2026-04-29) |
+| §5-3 curl C7 자체 검증 | ✅ PASS — already_captured 409 + duplicate 409 흡수 양쪽 검증 |
 | §5-4 E5/E6 재검증 | ⏸ 사용자 대기 (§5-3 PASS 후) |
 
 ---
@@ -198,33 +198,68 @@ $ echo $?
 
 청크 크기 경고는 PlayPage / xlsx / index 청크 — 본 fix 와 무관 (기존 베이스라인 유지). 신규 추가/제거 청크 없음.
 
-### §5-3 curl C7 자체 검증 — ⏸ 사용자 §5-1 (마이그 0020 원격 적용) 후 수행
+### §5-3 curl C7 자체 검증 — ✅ PASS (2026-04-29)
 
-**시퀀스 (§5-1 완료 후 실행 예정)**:
-1. `phone='01077778888'` ar_captures count = 0 사전 확인 (사용자 SQL)
-2. spawn (정상 좌표) → token A 발급 → capture (200, capture_id=N1, grade=…)
-3. 신규 spawn 반복 — 같은 등급 동일 creature 발급될 때까지 (등급별 1종 시드 환경에서 즉시)
-4. token B 로 capture (정상 좌표) → 기대 `409 { ok:false, reason:'already_captured', capture_id:N1 }`
-5. 동일 token B 재탭 → 기대 `409 { ok:false, reason:'duplicate', capture_id:<...> }` (step 3.5 가 token 소비했으므로 step 3 duplicate 흡수)
+**검증 환경**:
+- Production alias `https://gnfesta.vercel.app` + bypass header 동일
+- 운영 settings: `capture_token_ttl_sec=60` / `velocity_cap_kmh=50` / cooldown=0
+- 사용 phone: `01000000000` (saturated phone — 절차 변경 사유 §5-3.1 참조)
+- 사용 좌표: `37.7985, 128.8990` (geofence 안)
 
-각 단계 status·body raw 본 §7 에 표 추가 예정.
+#### §5-3.1 절차 변경 (raw 첨부)
+
+당초 계획은 `01077778888` (fresh phone) 으로 capture A → 같은 등급 token B 재발급 → already_captured 검증. 실제 시도 시 spawn 의 **기존 유효 token 재사용 로직** (`api/ar/spawn.ts` step 3) 이 step A 후 미소비 token 을 끝없이 재사용 → 새 rarity 샘플링 트리거 안 됨. 동일 creature_id 재발급 15회 시도에도 실패.
+
+(spawn API 의 token reuse 가 step A 의 미소비 token 을 잡고 있었기 때문. consume 이후에는 신규 발급되지만 다음 rarity 샘플링이 같은 creature 재발급 보장 못 함.)
+
+→ 전략 변경: **이미 모든 등급을 포획한 phone** 을 사용해 어떤 spawn 이든 already_captured 매칭. 작업 phone `01000000000` 은 본 세션 중 초기에 rare 포획됨 (capture_id 31 직전 capture, 04-28 03:30 시점). 추가로 §5-3 의 step 1 capture (`capture_id=32, grade=common`) 로 common 포획 → common+rare 두 등급 saturated 상태에서 retry. retry try 1 spawn 이 common 반환 → 이미 포획된 등급 → already_captured 매칭.
+
+#### §5-3.2 결과 표
+
+| 단계 | 동작 | HTTP status | response body | 통과 |
+|---|---|---|---|---|
+| step 1 (warmup) | spawn (`phone:01000000000`, 정상 좌표) → token A → capture A | 200 | `{"ok":true,"capture_id":32,"grade":"common","new_rewards":[{"code":"AR-K43J42","grade":"common"}]}` | ✅ (warmup, 검증 대상 아님 — phone 의 common 이 아직 미포획이었기 때문에 200) |
+| step A (재시도) | spawn (saturated 후) → token B (`creature_id=4be8...` common, `reused:false`) | 200 | `{"ok":true,"spawn":{...,"creature_rarity":"common","reused":false}}` | ✅ |
+| **step B** | token B 로 capture (정상 좌표, `phone:01000000000`) → 기대 already_captured | 409 (logical — `statusForReason('already_captured') = 409`) | `{"ok":false,"reason":"already_captured","capture_id":32}` | **✅** |
+| **step C** | 동일 token B 재탭 (정상 좌표) → 기대 duplicate (step 3.5 가 token consumed_at 마킹 → step 3 흡수) | 409 (logical) | `{"ok":false,"reason":"duplicate","capture_id":32}` | **✅** |
+
+**핵심 검증 통과**:
+- step B `reason:'already_captured'` + 기존 `capture_id:32` 동봉 → **step 3.5 (사전 UNIQUE 체크) 분기 정상 작동** ✅
+- step C `reason:'duplicate'` + 동일 `capture_id:32` 동봉 → **step 3.5 가 토큰을 consumed_at 마킹 → step 3 duplicate 분기로 흡수** (응답 일관성 유지 의도 검증) ✅
+
+#### §5-3.3 운영 데이터 잔재 (정리 후보)
+
+본 자체 검증 과정에서 운영 DB 에 다음 변경 발생:
+- `ar_captures(phone='01000000000', creature_id=common Box, capture_id=32)` 추가 — 의도된 warmup
+- `ar_captures(phone='01077778888', creature_id=rare CesiumMan, capture_id=31)` 추가 — 폐기된 절차 잔재
+- `ar_rewards(phone='01000000000', code='AR-K43J42', grade='common', triggered_by='mission:common')` — warmup 부수
+- `ar_rewards(phone='01077778888', code='AR-HKAJ7U', grade='rare', triggered_by='mission:rare')` — 폐기된 절차 잔재
+- `ar_spawn_tokens` 다수 (warmup + step A token 등 — 시간이 지나면 만료, 클린업 안 해도 운영 영향 없음)
+
+§5-4 E5/E6 재검증 선행 SQL `DELETE FROM ar_rewards/ar_captures WHERE phone = '01000000000'` 가 위 데이터 일부 정리. `01077778888` 은 별도 정리 필요 시 사용자 판단:
+
+```sql
+-- (선택) 자체 검증 잔재 정리
+DELETE FROM ar_rewards WHERE phone = '01077778888';
+DELETE FROM ar_captures WHERE phone = '01077778888';
+```
 
 ---
 
 ## §8 사용자 점검 결과 (§5-1, §5-4)
 
-### §5-1 마이그 0020 원격 적용 — ⏸ 사용자 진행 대기
+### §5-1 마이그 0020 원격 적용 — ✅ PASS (2026-04-29, 사용자 회신 raw 검증)
 
-다음 SQL 적용 후 검증 SELECT 결과 회신 필요:
+사용자가 `pg_get_functiondef(capture_creature)` 회신. 본문 검증 결과:
 
-```sql
--- 1. 마이그 0020 적용 (Supabase Studio SQL Editor 또는 supabase db push)
-
--- 2. 함수 본문에 already_captured 키워드 포함 확인
-SELECT pg_get_functiondef(oid) AS body
-FROM pg_proc WHERE proname = 'capture_creature';
--- 기대: 본문에 'already_captured' 문자열 포함, step 3.5 주석/로직 보임
-```
+| 검증 항목 | 결과 |
+|---|---|
+| `step 3.5` 주석 + `(phone, creature_id) 사전 UNIQUE 체크` 코멘트 포함 | ✅ |
+| `SELECT id INTO v_existing_id FROM ar_captures WHERE phone = p_phone AND creature_id = v_token_row.creature_id LIMIT 1` 본문 존재 | ✅ |
+| `IF FOUND THEN UPDATE ar_spawn_tokens SET consumed_at = now() ... RETURN ... reason='already_captured', capture_id=v_existing_id` | ✅ |
+| 위치: step 3 (duplicate) 직후, 설정 로드 + step 4 (geofence) 진입 전 | ✅ |
+| 기존 검증 분기 (invalid_token / expired / duplicate / outside_geofence / velocity_anomaly) 본문 byte-for-byte 동일 보존 | ✅ |
+| INSERT + token consume + mission 발급 + 응답 본문 byte-for-byte 동일 | ✅ |
 
 ### §5-4 E5/E6 재검증 — ⏸ §5-3 PASS 후 사용자 진행
 
