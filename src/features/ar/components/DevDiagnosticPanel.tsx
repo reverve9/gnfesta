@@ -25,6 +25,7 @@ import type { PermissionState } from '../hooks/useArPermissions'
 import type { FestivalSettingsDto } from '../lib/api'
 import type { ServerRejectionReason } from '../hooks/useSpawnScheduler'
 import { readDebugFlag } from '../lib/debugFlag'
+import { getArSceneInstanceCount } from '../three/ArScene'
 import styles from './DevDiagnosticPanel.module.css'
 
 type MemoryWithHeap = Performance & {
@@ -100,12 +101,23 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
   const [open, setOpen] = useState(true)
   const [memoryText, setMemoryText] = useState<string>('—')
   const [tokenCountdown, setTokenCountdown] = useState<string>('—')
+  const [sceneInstances, setSceneInstances] = useState<number>(getArSceneInstanceCount())
 
   useEffect(() => {
     if (!readDebugFlag()) return
     const update = () => setMemoryText(formatMemoryMB())
     update()
     const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Phase 5: ArScene 인스턴스 누적 감시 — 정상 작동 시 1 초과 금지.
+  // useArSceneLifecycle 의 disposedRef 가드와는 별개 자가 진단.
+  useEffect(() => {
+    if (!readDebugFlag()) return
+    const tick = () => setSceneInstances(getArSceneInstanceCount())
+    tick()
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
 
@@ -180,6 +192,14 @@ export default function DevDiagnosticPanel(props: DevDiagnosticPanelProps) {
 
         <dt className={styles.key}>Spawned</dt>
         <dd className={styles.val}>{props.spawnCount}</dd>
+
+        <dt className={styles.key}>ArScene instances</dt>
+        <dd
+          className={sceneInstances > 1 ? styles.valError : styles.val}
+          title="정상 작동 시 동시 표시 1 초과 금지 (StrictMode 이중 마운트 시에도 가드로 유지)"
+        >
+          {sceneInstances}
+        </dd>
 
         <dt className={styles.key}>Captured@</dt>
         <dd className={styles.val}>{formatTime(props.lastCapturedAt)}</dd>

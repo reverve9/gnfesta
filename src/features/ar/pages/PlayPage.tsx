@@ -240,6 +240,7 @@ export default function PlayPage() {
   useArSceneLifecycle({
     sceneRef,
     cameraStreamRef,
+    creatureLoaderRef,
     debug: import.meta.env.DEV,
   })
 
@@ -329,9 +330,13 @@ export default function PlayPage() {
       }
       scene.start()
       sceneRef.current = scene
-      creatureLoaderRef.current = new CreatureLoader({
+      const loader = new CreatureLoader({
         onError: (url, err) => setLastError(`load ${url}: ${err.message}`),
       })
+      creatureLoaderRef.current = loader
+      // ArScene.dispose() 가 loader.clearCache() 까지 일괄 호출하도록 attach.
+      // (loader 인스턴스 dispose 는 useArSceneLifecycle 가 책임)
+      scene.attachCreatureLoader(loader)
     } else if (kind === 'fallback-2d') {
       const fb = new FallbackRenderer({
         canvas,

@@ -18,12 +18,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ArScene } from '../three/ArScene'
 import type { CameraStream } from '../three/CameraStream'
+import type { CreatureLoader } from '../three/CreatureLoader'
 
 export interface UseArSceneLifecycleOptions {
   /** 이미 init 된 ArScene 인스턴스 참조. 상위가 생성·init 후 설정. */
   sceneRef: React.MutableRefObject<ArScene | null>
   /** 선택: Visibility 시 pause/resume 할 카메라 스트림. */
   cameraStreamRef?: React.MutableRefObject<CameraStream | null>
+  /**
+   * 선택: Phase 5 — ArScene.dispose() 와 동일 시점에 정리할 CreatureLoader 참조.
+   * cleanup 진입 시 loader.dispose() 호출 + ref null 화. ArScene 가 attach 된 loader 의
+   * clearCache() 까지는 자체 dispose() 안에서 수행하지만, loader 인스턴스 자체 dispose 는
+   * 본 훅이 책임진다 (PlayPage 호출부 변경 최소화).
+   */
+  creatureLoaderRef?: React.MutableRefObject<CreatureLoader | null>
   /** Phase 4+ 에서 5분 타이머 주입. Phase 2 에서는 미지정. */
   sessionTimeoutMs?: number
   /** 세션 타임아웃 발동 시 호출. Phase 2 에서는 호출되지 않음. */
@@ -49,13 +57,28 @@ function isDocumentVisible(): boolean {
 export function useArSceneLifecycle(
   options: UseArSceneLifecycleOptions,
 ): ArSceneLifecycleApi {
-  const { sceneRef, cameraStreamRef, sessionTimeoutMs, onSessionTimeout, debug } =
-    options
+  const {
+    sceneRef,
+    cameraStreamRef,
+    creatureLoaderRef,
+    sessionTimeoutMs,
+    onSessionTimeout,
+    debug,
+  } = options
 
   const [isVisible, setIsVisible] = useState<boolean>(isDocumentVisible())
   const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timeoutCbRef = useRef<(() => void) | undefined>(onSessionTimeout)
   timeoutCbRef.current = onSessionTimeout
+  /**
+   * dispose idempotency 가드 (Phase 5 §1-1).
+   * 매 useEffect setup 에서 false 로 리셋, cleanup 에서 true 마킹 + early return.
+   * StrictMode 이중 마운트 시 첫 sim cleanup 후 ref 가 다시 false 로 reset 되어
+   * 진짜 unmount 의 cleanup 이 정상 실행됨. ArScene 자체의 `disposed` 플래그와는
+   * 별개 — 이쪽은 훅 cleanup 본문 (loader.dispose, sessionTimer clear 등) 의
+   * 이중 실행 방지용. DevPanel 의 instanceCount 와도 별개.
+   */
+  const disposedRef = useRef(false)
 
   const clearSessionTimer = useCallback(() => {
     if (sessionTimerRef.current !== null) {
@@ -111,12 +134,22 @@ export function useArSceneLifecycle(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debug])
 
-  // Unmount 시 scene 자동 정리 — 상위가 별도로 dispose 하지 않은 경우에도 누수 방지
+  // Unmount 시 scene·loader·cameraStream 자동 정리 — 누수 방지
   useEffect(() => {
+    disposedRef.current = false
     return () => {
+      if (disposedRef.current) {
+        if (debug) console.log('[useArSceneLifecycle] cleanup skipped (already disposed)')
+        return
+      }
+      disposedRef.current = true
       clearSessionTimer()
       sceneRef.current?.dispose()
       sceneRef.current = null
+      if (creatureLoaderRef) {
+        creatureLoaderRef.current?.dispose()
+        creatureLoaderRef.current = null
+      }
       cameraStreamRef?.current?.dispose()
       if (cameraStreamRef) cameraStreamRef.current = null
       if (debug) console.log('[useArSceneLifecycle] unmount dispose')
@@ -125,9 +158,15 @@ export function useArSceneLifecycle(
   }, [])
 
   const cleanup = useCallback(() => {
+    if (disposedRef.current) return
+    disposedRef.current = true
     clearSessionTimer()
     sceneRef.current?.dispose()
     sceneRef.current = null
+    if (creatureLoaderRef) {
+      creatureLoaderRef.current?.dispose()
+      creatureLoaderRef.current = null
+    }
     cameraStreamRef?.current?.dispose()
     if (cameraStreamRef) cameraStreamRef.current = null
     if (debug) console.log('[useArSceneLifecycle] manual cleanup')

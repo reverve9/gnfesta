@@ -18,6 +18,7 @@ import {
   type CollectionCapture,
 } from '../lib/api'
 import type { ArRarity } from '../lib/assets'
+import { CREATURE_COLORS, parsePrimitiveUrl } from '../lib/creatureColors'
 import { isValidPhone, loadLastPhone, normalizePhone } from '../../../lib/phone'
 import ArStub from './ArStub'
 import styles from './CollectionPage.module.css'
@@ -203,26 +204,38 @@ export default function CollectionPage() {
             <p className={styles.emptyHint}>아직 포획하지 않았습니다.</p>
           ) : (
             <ul className={styles.captureGrid}>
-              {byRarity[grade].map(c => (
-                <li key={c.id} className={styles.captureCard}>
-                  {c.thumbnail_url ? (
-                    <img
-                      className={styles.captureThumb}
-                      src={c.thumbnail_url}
-                      alt={c.creature_name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className={styles.captureFallback}>
-                      {c.creature_name.slice(0, 1)}
-                    </div>
-                  )}
-                  <span className={styles.captureName}>{c.creature_name}</span>
-                  <span className={styles.captureTime}>
-                    {formatCapturedAt(c.captured_at)}
-                  </span>
-                </li>
-              ))}
+              {byRarity[grade].map(c => {
+                const primitive = c.thumbnail_url
+                  ? parsePrimitiveUrl(c.thumbnail_url)
+                  : null
+                return (
+                  <li key={c.id} className={styles.captureCard}>
+                    {primitive ? (
+                      <div
+                        className={styles.captureThumb}
+                        style={{ background: CREATURE_COLORS[primitive.grade] }}
+                        aria-label={c.creature_name}
+                        role="img"
+                      />
+                    ) : c.thumbnail_url ? (
+                      <img
+                        className={styles.captureThumb}
+                        src={c.thumbnail_url}
+                        alt={c.creature_name}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className={styles.captureFallback}>
+                        {c.creature_name.slice(0, 1)}
+                      </div>
+                    )}
+                    <span className={styles.captureName}>{c.creature_name}</span>
+                    <span className={styles.captureTime}>
+                      {formatCapturedAt(c.captured_at)}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>

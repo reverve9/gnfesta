@@ -1,21 +1,26 @@
 /**
- * glTF 모델 로더 (Draco 압축 지원 + URL 기반 메모리 캐시).
+ * Creature 로더 — Phase 5: 2D plane primitive.
  *
- * TestScene.ts 엔 없던 신규 모듈 — Phase 2 에서 처음 도입.
+ * Phase 2~4 의 GLTFLoader / Draco / 외부 GLB fetch 경로는 전면 제거됐다.
+ * 본 모듈은 `model_url` 을 `primitive:plane:<grade>` 형식으로 받아
+ * 등급별 단색 PlaneGeometry + MeshBasicMaterial(DoubleSide) 인스턴스를 반환한다.
  *
- * 정책:
- *  - 같은 URL 은 1회만 네트워크 요청, 이후 `scene.clone(true)` 로 복제 제공 (캐시).
- *  - 로딩 실패 시 `BoxGeometry` 폴백 Mesh 반환 + 에러 로그 콜백.
- *  - Draco 디코더는 Google 공개 CDN 사용 (gstatic, 버전 고정 1.5.6).
- *  - Phase 2 에서는 텍스처 공유 전제로 캐시 정책 단순화 (참조 카운트 없음).
- *    실제 프로덕션에서 수십 종 로딩 시 Phase 7 에서 재설계.
+ * 정책 (PHASE_5_PROMPT.md §1-2):
+ *  - public API 시그니처 보존 (Q3=A): `load(url)` / `clearCache()` / `dispose()` /
+ *    export `disposeObject(...)` 모두 동일. 호출부 수정 없이 동작해야 함.
+ *  - `primitive:plane:<grade>` 외 형식은 console.warn + common 단색 fallback.
+ *  - 캐시는 `Map<grade, { geometry, material }>` — 동일 grade 가 동시에 여러 위치에
+ *    스폰돼도 transform 충돌 없이 `new Mesh(cachedGeo, cachedMat)` 로 인스턴스화.
+ *  - 빌보드 처리 안 함 — Y축 회전 시 옆모습이 사라지는 의도된 시각 효과.
+ *
+ * 실 에셋 도입 Phase 에서는 본 모듈을 재교체하거나, 실 텍스처/스프라이트 분기를 추가한다.
  */
 
 import * as THREE from 'three'
-import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import type { ArRarity } from '../lib/assets'
+import { CREATURE_COLORS, parsePrimitiveUrl } from '../lib/creatureColors'
 
-const DRACO_DECODER_PATH = 'https://www.gstatic.com/draco/versioned/decoders/1.5.6/'
+const PLANE_SIZE = 0.7
 
 export interface CreatureLoaderOptions {
   onError?: (url: string, error: Error) => void
@@ -23,90 +28,88 @@ export interface CreatureLoaderOptions {
 }
 
 export interface LoadedCreature {
-  /** 씬에 추가할 준비된 Object3D. 복제본이므로 매 요청마다 새 인스턴스. */
+  /** 씬에 추가할 준비된 Object3D. 매 요청마다 새 Mesh 인스턴스. */
   root: THREE.Object3D
-  /** 원본 gltf.animations — 호출부가 AnimationMixer 로 재생. */
+  /** Phase 5 placeholder 는 애니메이션 없음. 호환성 위해 빈 배열 반환. */
   animations: THREE.AnimationClip[]
-  /** 캐시 히트 여부 (디버그 용) */
+  /** geometry/material 캐시 히트 여부 (디버그 용). */
   fromCache: boolean
-  /** 폴백 모델 여부 (로딩 실패 시 true, 기본 BoxGeometry) */
+  /** primitive 형식 외 들어와 fallback 으로 처리됐는지 여부. */
   isFallback: boolean
 }
 
+interface PrimitiveCacheEntry {
+  geometry: THREE.PlaneGeometry
+  material: THREE.MeshBasicMaterial
+}
+
 export class CreatureLoader {
-  private readonly loader: GLTFLoader
-  private readonly draco: DRACOLoader
-  private readonly cache = new Map<string, GLTF>()
-  private readonly options: CreatureLoaderOptions
+  private readonly cache = new Map<ArRarity, PrimitiveCacheEntry>()
   private disposed = false
 
-  constructor(options: CreatureLoaderOptions = {}) {
-    this.options = options
-    this.draco = new DRACOLoader()
-    this.draco.setDecoderPath(DRACO_DECODER_PATH)
-    this.loader = new GLTFLoader()
-    this.loader.setDRACOLoader(this.draco)
-  }
+  // options 는 시그니처 호환 위해 받기만 하고 보관 안 함 — Phase 5 placeholder 는
+  // 외부 fetch 가 없어 onError/onProgress 호출 경로가 없다.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_options: CreatureLoaderOptions = {}) {}
 
   async load(url: string): Promise<LoadedCreature> {
     if (this.disposed) {
-      return this.makeFallback(true)
+      return this.makePlaneMesh('common', false, true)
     }
-    const cached = this.cache.get(url)
-    if (cached) {
-      // TODO(Phase 7): clone(true) 는 geometry/material/texture 를 참조 공유한다.
-      // 현재 ArScene.despawnCreature → disposeObject() 가 공유 리소스를 dispose 하면
-      // 같은 url 을 재로드 할 때 캐시 원본이 불능화될 수 있다.
-      // Phase 2 더미 스폰 범위에서는 동일 url 중복 스폰이 드물어 영향 없으나,
-      // 포획 UX 가 완성되는 Phase 4~7 에서 참조 카운트 또는 복제본별 리소스 소유권 도입 필요.
-      return {
-        root: cached.scene.clone(true),
-        animations: cached.animations,
-        fromCache: true,
-        isFallback: false,
-      }
-    }
-    try {
-      const gltf = await this.loader.loadAsync(url, evt =>
-        this.options.onProgress?.(url, evt),
+
+    const parsed = parsePrimitiveUrl(url)
+    if (!parsed) {
+      console.warn(
+        `[CreatureLoader] unsupported model_url "${url}" — primitive:plane:<grade> 만 지원. common fallback.`,
       )
-      if (this.disposed) {
-        // 로딩 중 dispose 됐으면 결과 즉시 폐기
-        disposeObject(gltf.scene)
-        return this.makeFallback(true)
-      }
-      this.cache.set(url, gltf)
-      return {
-        root: gltf.scene.clone(true),
-        animations: gltf.animations,
-        fromCache: false,
-        isFallback: false,
-      }
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e))
-      this.options.onError?.(url, err)
-      return this.makeFallback(false)
+      return this.makePlaneMesh('common', false, true)
+    }
+
+    const cached = this.cache.has(parsed.grade)
+    return this.makePlaneMesh(parsed.grade, cached, false)
+  }
+
+  private makePlaneMesh(
+    grade: ArRarity,
+    fromCache: boolean,
+    isFallback: boolean,
+  ): LoadedCreature {
+    const entry = this.getOrCreateEntry(grade)
+    const mesh = new THREE.Mesh(entry.geometry, entry.material)
+    mesh.userData.isCreature = true
+    mesh.userData.grade = grade
+    mesh.userData.spawnedAt = performance.now()
+    return {
+      root: mesh,
+      animations: [],
+      fromCache,
+      isFallback,
     }
   }
 
-  private makeFallback(silent: boolean): LoadedCreature {
-    const geometry = new THREE.BoxGeometry(1, 1, 1)
-    const material = new THREE.MeshNormalMaterial()
-    const mesh = new THREE.Mesh(geometry, material)
-    // 폴백 메쉬는 ArScene.despawnCreature() 가 호출될 때 dispose 되어야 함
-    mesh.userData.__creatureFallback = true
-    if (!silent && this.options.onError) {
-      // onError 는 이미 위에서 한 번 호출됨 — 여기선 중복 호출 금지
-    }
-    return { root: mesh, animations: [], fromCache: false, isFallback: true }
+  private getOrCreateEntry(grade: ArRarity): PrimitiveCacheEntry {
+    const existing = this.cache.get(grade)
+    if (existing) return existing
+    const geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE)
+    const material = new THREE.MeshBasicMaterial({
+      color: CREATURE_COLORS[grade],
+      side: THREE.DoubleSide,
+      transparent: false,
+    })
+    const entry: PrimitiveCacheEntry = { geometry, material }
+    this.cache.set(grade, entry)
+    return entry
   }
 
   /**
-   * 캐시 비우기 + Draco 워커 정리. Loader 재사용 가능.
-   * dispose() 와 달리 loader 자체는 살려둠.
+   * 캐시 비우기. geometry/material 모두 dispose.
+   * 다음 load 호출 시 lazy 재생성.
    */
   clearCache(): void {
-    this.cache.forEach(gltf => disposeObject(gltf.scene))
+    this.cache.forEach(entry => {
+      entry.geometry.dispose()
+      entry.material.dispose()
+    })
     this.cache.clear()
   }
 
@@ -114,14 +117,18 @@ export class CreatureLoader {
     if (this.disposed) return
     this.disposed = true
     this.clearCache()
-    this.draco.dispose()
   }
 }
 
 /**
  * Object3D 전체를 순회하며 geometry/material/texture 를 해제.
- * Material 배열과 단일 양쪽 지원. Material 의 map·normalMap·roughnessMap 등
- * 자주 쓰이는 텍스처 슬롯을 탐색해 개별 dispose.
+ *
+ * Phase 5 placeholder 는 캐시된 geometry/material 을 인스턴스간 공유하므로
+ * 호출 시점에 따라 캐시 원본이 dispose 될 수 있다. 본 함수는 ArScene.dispose()
+ * (전체 정리) 경로에서만 호출되어야 하며, 단일 creature despawn 에서는 caller 가
+ * 공유 리소스를 dispose 하지 않도록 주의해야 한다.
+ *
+ * Phase 4 까지의 Object3D dispose 헬퍼와 동일 시그니처 유지.
  */
 export function disposeObject(root: THREE.Object3D): void {
   root.traverse(obj => {
@@ -137,7 +144,6 @@ export function disposeObject(root: THREE.Object3D): void {
 }
 
 function disposeMaterial(material: THREE.Material): void {
-  // Material 에 붙는 흔한 텍스처 속성들을 찾아 해제. runtime 검사로 타입 안전.
   const record = material as unknown as Record<string, unknown>
   for (const key of Object.keys(record)) {
     const value = record[key]
